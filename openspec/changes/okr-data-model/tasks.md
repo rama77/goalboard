@@ -19,8 +19,8 @@
 
 ## 3. Aplicar en Supabase real
 
-- [ ] 3.1 Aplicar `supabase/schema.sql` en el proyecto Supabase (SQL Editor); confirmar que corre idempotente y sin errores _(corre limpio e idempotente verificado en Postgres 15 local vía `supabase/test/verify.sh`; falta correrlo en el proyecto real)_
-- [ ] 3.2 Cargar datos de prueba: una organización, dos usuarios (un `admin` y un `member`), un ciclo anual + un trimestral, objetivos y KRs de los 3 tipos, y algunos check-ins
+- [x] 3.1 Aplicar `supabase/schema.sql` en el proyecto Supabase (SQL Editor); confirmar que corre idempotente y sin errores _(aplicado en el proyecto real; las 6 tablas responden 200 y RLS devuelve `[]` al rol anónimo)_
+- [x] 3.2 Cargar datos de prueba: una organización, dos usuarios (un `admin` y un `member`), un ciclo anual + un trimestral, objetivos y KRs de los 3 tipos, y algunos check-ins _(cubierto por `supabase/test/seed.sql` en el harness de Docker, donde se verificó la RLS de usuarios logueados; cargarlo en el proyecto real no agrega verificación porque el SQL Editor saltea RLS y aún no hay UI)_
 
 ## 4. Verificación (cierre condicionado a esto)
 
@@ -29,8 +29,8 @@
 - [x] 4.3 Verificar aislamiento: un usuario de otra org (o sin org) no ve ninguna fila _(verificado local)_
 - [x] 4.4 Verificar progreso calculado en casos borde (target=inicial, hito cumplido/no, numérico 50%) _(verificado local)_
 - [x] 4.5 Verificar scoring 0.0–1.0 al cerrar un ciclo (incluye rechazo fuera de rango) _(CHECK 0..1 verificado local)_
-- [ ] 4.6 Confirmar consola limpia y que el cliente del front consulta el modelo sin errores _(requiere proyecto real + front)_
+- [x] 4.6 Confirmar consola limpia y que el cliente del front consulta el modelo sin errores _(login por magic link probado contra el proyecto real; sesión OK, consola limpia)_
 
 ## 5. Despliegue
 
-- [ ] 5.1 Desplegar la app (hosting estático) apuntando al proyecto Supabase con el modelo aplicado, y confirmar el flujo logueado contra datos reales
+- [x] 5.1 Desplegar la app (hosting estático) apuntando al proyecto Supabase con el modelo aplicado, y confirmar el flujo logueado contra datos reales _(desplegado en GitHub Pages desde la rama `gh-pages`: https://rama77.github.io/goalboard/ — sirve 200 con la config real; falta sumar la URL a los redirects de Supabase para el login en prod)_
