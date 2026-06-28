@@ -1,6 +1,6 @@
 # Pruebas del schema + RLS
 
-Validan `supabase/schema.sql` (tablas, progreso calculado, trigger y políticas
+Validan las migraciones de `supabase/migrations/` (tablas, progreso calculado, trigger y políticas
 Row Level Security) en un Postgres efímero en Docker, **sin tocar ningún proyecto
 Supabase real**. Simulan el entorno de Supabase: esquema `auth`, `auth.uid()` y
 los roles `anon` / `authenticated` (con RLS activa).

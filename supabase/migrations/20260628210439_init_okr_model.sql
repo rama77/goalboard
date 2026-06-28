@@ -330,3 +330,16 @@ drop trigger if exists trg_apply_check_in on public.check_ins;
 create trigger trg_apply_check_in
   after insert on public.check_ins
   for each row execute function public.apply_check_in_to_kr();
+
+-- =====================================================================
+-- 4. PRIVILEGIOS PARA LOS ROLES DE SUPABASE
+-- =====================================================================
+-- La seguridad real la imponen las políticas RLS de arriba. Estos GRANT son el
+-- piso de privilegios que PostgREST necesita para que los roles lleguen a las
+-- tablas (Supabase Cloud los auto-otorga; el stack local NO, así que se hacen
+-- explícitos para que el schema sea portable entre local y nube).
+grant usage on schema public to anon, authenticated;
+grant select on all tables in schema public to anon, authenticated;
+grant insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
+grant execute on all functions in schema public to anon, authenticated;

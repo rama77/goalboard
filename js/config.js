@@ -1,15 +1,15 @@
-// Configuración pública de goalboard.
+// Configuración pública de goalboard — apunta al stack LOCAL de Supabase.
 //
-// IMPORTANTE: estos valores son PÚBLICOS por diseño. La publishable key de
-// Supabase está pensada para vivir en el front-end; lo que protege los datos son
-// las políticas Row Level Security (RLS) en Supabase, no el secreto de esta clave.
+// Estos son los valores por defecto de la Supabase CLI (`supabase start`):
+// son PÚBLICOS y compartidos por todas las instalaciones locales, así que
+// versionarlos está bien. Para correr el proyecto: `supabase start` y serví
+// el front por HTTP (ver README).
 //
-// NUNCA pongas acá (ni en ningún archivo del repo) la SECRET key (`sb_secret_...`)
-// u otro secreto: esos no van jamás al cliente.
+// IMPORTANTE: la publishable key es pública por diseño; lo que protege los datos
+// son las políticas RLS. NUNCA pongas la SECRET key (`sb_secret_...`) en el repo.
 //
-// Reemplazá los valores por los de TU proyecto Supabase:
-//   - SUPABASE_URL             → Project Settings → Data API → Project URL
-//   - SUPABASE_PUBLISHABLE_KEY → Project Settings → API Keys → Publishable key
+// El despliegue contra un Supabase en la nube se configura aparte (no acá), para
+// que el repo no quede atado a ninguna instancia productiva.
 
-export const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_YOUR_KEY';
+export const SUPABASE_URL = 'http://127.0.0.1:54321';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
