@@ -1,0 +1,13 @@
+-- goalboard — esquema de base de datos (Supabase / Postgres)
+--
+-- PLACEHOLDER. Todavía no hay modelo de datos.
+--
+-- Acá vivirán las tablas del modelo de OKRs y, sobre todo, las políticas
+-- Row Level Security (RLS), que son la capa de autorización de goalboard
+-- (no hay backend propio: la seguridad la impone Postgres + RLS).
+--
+-- Estas definiciones se agregan en un change posterior de OpenSpec, no en
+-- `bootstrap-goalboard`.
+--
+-- Para aplicarlo cuando exista: pegá el contenido en el SQL Editor de tu
+-- proyecto Supabase y ejecutalo.
