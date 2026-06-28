@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>goalboard</title>
     <link rel="stylesheet" href="./css/styles.css" />
+    <script>
+      // Aplicar el tema antes de pintar, para evitar parpadeo (mismo criterio que state.js).
+      try {
+        var t = localStorage.getItem('goalboard.theme.v1');
+        var dark = t ? t === 'dark' : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <!-- app.js monta acá la vista de login o el shell autenticado -->
     <div id="app" aria-busy="true"></div>
     <script type="module" src="./js/app.js"></script>
   </body>
