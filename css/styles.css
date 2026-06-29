@@ -147,6 +147,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .ap-radio.sel{border-color:var(--brand-teal);color:var(--foreground)}
 .ap-guide{font-size:.74rem;color:var(--muted-foreground);background:var(--muted);border-radius:.6rem;padding:.5rem .6rem;margin:0}
 
+/* Caja del asistente de IA */
+.ap-ai-box{border:1px solid var(--border);border-radius:.8rem;padding:.75rem;background:color-mix(in srgb,var(--brand-teal) 6%,var(--card));display:flex;flex-direction:column;gap:.5rem}
+.ap-ai-box textarea{width:100%;padding:.6rem .75rem;background:var(--background);border:1px solid var(--border);border-radius:.7rem;color:var(--foreground);font-size:.875rem;font-family:inherit;resize:vertical}
+
 /* ===== Modal ===== */
 .ap-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:1rem;z-index:50}
 .ap-overlay.open{display:flex}

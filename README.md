@@ -94,6 +94,25 @@ goalboard/
 └── openspec/           # propuestas de cambios (spec-driven)
 ```
 
+## IA coach (opcional)
+
+goalboard puede ayudarte a **definir** OKRs (desde texto o un PDF, alineándolos a
+los de tu empresa) y a **revisarlos**. La IA corre en una **Edge Function**
+(`supabase/functions/okr-coach`), que guarda la API key del proveedor **del lado
+servidor** — nunca en el front. Es agnóstica: elegís proveedor (Anthropic / OpenAI)
+y modelo por empresa.
+
+Para usarla en local:
+
+1. Copiá `supabase/functions/env.example` a `supabase/functions/.env` (gitignored)
+   y completá la key del proveedor (p. ej. `ANTHROPIC_API_KEY`).
+2. Serví la función: `supabase functions serve okr-coach`.
+3. En la app, usá el botón **✨** (config de proveedor/modelo + uso) y, en el modal
+   de nuevo objetivo, **"Definir con IA"** / **"Revisar con IA"**.
+
+Sin key configurada, la app funciona igual: la IA solo avisa que no está
+disponible. El uso (tokens y costo estimado) queda registrado por empresa.
+
 ## Contribuir
 
 Mirá [CONTRIBUTING.md](CONTRIBUTING.md). `main` está protegida: todo entra por

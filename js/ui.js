@@ -204,6 +204,7 @@ export function renderApp(root, ctx) {
     ]),
     el('div', { class: 'ap-actions' }, [
       themeBtn(),
+      el('button', { class: 'ap-icon-btn', title: 'IA', 'aria-label': 'IA', text: '✨', onclick: handlers.onOpenAI }),
       activeCycle && view.isAdmin && !view.readOnly && objectives.length
         && el('button', { class: 'ap-btn ghost', text: 'Cerrar ciclo', onclick: () => handlers.onCloseCycle(objectives) }),
       activeCycle && !view.readOnly && el('button', { class: 'ap-btn', text: '+ Nuevo objetivo', onclick: handlers.onNewObjective }),
@@ -286,6 +287,23 @@ function krValueLabel(kr) {
 }
 function fmt(n) { const v = Number(n); return Number.isInteger(v) ? String(v) : v.toFixed(1); }
 
+// Lee un File como base64 (sin el prefijo data:).
+function fileToB64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+// Mensaje legible para errores suaves de la IA.
+function aiErr(res) {
+  if (res.error === 'provider_not_configured') return 'La IA no está configurada (falta la API key del proveedor).';
+  if (res.error === 'auth_required') return 'Necesitás estar logueado para usar la IA.';
+  if (res.error === 'forbidden') return 'No tenés acceso a esta empresa.';
+  return 'No se pudo usar la IA: ' + (res.detail || res.error || 'error');
+}
+
 // --- Modales ---------------------------------------------------------------
 function openModal(titleText, bodyNodes, buildActions) {
   const overlay = el('div', { class: 'ap-overlay open' });
@@ -325,7 +343,7 @@ export function newCycleModal({ defaultName, onSubmit }) {
 }
 
 // onSubmit({title, kind, keyResults}) -> Promise
-export function newObjectiveModal({ onSubmit }) {
+export function newObjectiveModal({ onSubmit, ai = null }) {
   const title = el('input', { type: 'text', placeholder: 'Ej: Crecer en el mercado' });
   const kind = el('select', {}, [
     el('option', { value: 'comprometido', text: 'Comprometido' }),
@@ -335,16 +353,16 @@ export function newObjectiveModal({ onSubmit }) {
   const warn = el('p', { class: 'ap-warn', style: 'display:none', text: 'Más de 5 key results: el objetivo pierde foco.' });
   const err = el('p', { class: 'ap-status' });
 
-  function krRow() {
-    const t = el('input', { type: 'text', placeholder: 'Key result (medible)' });
+  function krRow(init = {}) {
+    const t = el('input', { type: 'text', placeholder: 'Key result (medible)', value: init.title || '' });
     const type = el('select', {}, [
-      el('option', { value: 'numerico', text: 'Número' }),
-      el('option', { value: 'porcentaje', text: '%' }),
-      el('option', { value: 'hito', text: 'Hito' }),
+      el('option', { value: 'numerico', text: 'Número', selected: init.type === 'numerico' ? 'true' : null }),
+      el('option', { value: 'porcentaje', text: '%', selected: init.type === 'porcentaje' ? 'true' : null }),
+      el('option', { value: 'hito', text: 'Hito', selected: init.type === 'hito' ? 'true' : null }),
     ]);
-    const start = el('input', { type: 'number', placeholder: 'Inicial', value: '0' });
-    const target = el('input', { type: 'number', placeholder: 'Target' });
-    const current = el('input', { type: 'number', placeholder: 'Actual', value: '0' });
+    const start = el('input', { type: 'number', placeholder: 'Inicial', value: String(init.start ?? 0) });
+    const target = el('input', { type: 'number', placeholder: 'Target', value: init.target != null ? String(init.target) : '' });
+    const current = el('input', { type: 'number', placeholder: 'Actual', value: String(init.current ?? init.start ?? 0) });
     const row = el('div', { class: 'ap-kr-edit' }, [
       el('div', { class: 'ap-kr-edit-top' }, [t, el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } })]),
       type,
@@ -362,14 +380,71 @@ export function newObjectiveModal({ onSubmit }) {
     return row;
   }
   function refreshWarn() { warn.style.display = krList.children.length > 5 ? '' : 'none'; }
-  function addKr() { krList.append(krRow()); refreshWarn(); }
+  function addKr(init) { krList.append(krRow(init)); refreshWarn(); }
   addKr();
 
+  // --- Controles de IA (opcionales) ---
+  const aiBox = el('div', { class: 'ap-ai-box', style: ai ? '' : 'display:none' });
+  function readDraft() {
+    return { title: title.value.trim(), kind: kind.value, keyResults: [...krList.children].map((r) => r._read()).filter((k) => k.title) };
+  }
+  function fillFromProposal(p) {
+    title.value = p.title || '';
+    if (p.kind) kind.value = p.kind;
+    krList.replaceChildren();
+    (p.keyResults || []).forEach((kr) => addKr(kr));
+    if (!krList.children.length) addKr();
+    refreshWarn();
+  }
+  function renderFindings(box, findings, summary) {
+    box.replaceChildren();
+    if (summary) box.append(el('p', { class: 'ap-muted', text: summary }));
+    (findings || []).forEach((f) => box.append(el('div', { class: `ap-conf ${f.severity === 'warn' ? 'warn' : 'ok'}`, style: 'display:flex;margin:.2rem 0' }, [
+      el('span', { class: 'cd' }), el('span', { text: `${f.message}${f.suggestion ? ' — ' + f.suggestion : ''}` }),
+    ])));
+  }
+  if (ai) {
+    const defText = el('textarea', { rows: '3', placeholder: 'Contá qué tenés que hacer (o subí un PDF) y la IA propone OKRs…' });
+    const pdf = el('input', { type: 'file', accept: 'application/pdf' });
+    const aiStatus = el('p', { class: 'ap-status' });
+    const out = el('div', {});
+    const btnDefine = el('button', { class: 'ap-btn ghost', type: 'button', text: '✨ Definir con IA', onclick: async () => {
+      aiStatus.dataset.kind = ''; aiStatus.textContent = 'Pensando…'; btnDefine.disabled = true;
+      try {
+        const input = { text: defText.value.trim() };
+        const file = pdf.files?.[0];
+        if (file) input.pdf_base64 = await fileToB64(file);
+        const res = await ai.define(input);
+        if (res.error) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = aiErr(res); return; }
+        const p = res.result?.proposals?.[0];
+        if (p) { fillFromProposal(p); aiStatus.dataset.kind = 'ok'; aiStatus.textContent = 'Propuesta cargada — editala a tu gusto.'; }
+        renderFindings(out, res.result?.findings, res.result?.summary);
+      } catch (e) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = String(e.message || e); }
+      finally { btnDefine.disabled = false; }
+    } });
+    const btnReview = el('button', { class: 'ap-btn ghost', type: 'button', text: 'Revisar con IA', onclick: async () => {
+      aiStatus.dataset.kind = ''; aiStatus.textContent = 'Revisando…'; btnReview.disabled = true;
+      try {
+        const res = await ai.review(readDraft());
+        if (res.error) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = aiErr(res); return; }
+        renderFindings(out, res.result?.findings, res.result?.summary);
+        aiStatus.textContent = '';
+      } catch (e) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = String(e.message || e); }
+      finally { btnReview.disabled = false; }
+    } });
+    aiBox.append(
+      el('div', { class: 'ap-field' }, [el('label', { text: 'Asistente de IA' }), defText, el('div', { class: 'ap-field-row', style: 'margin-top:.4rem' }, [pdf])]),
+      el('div', { class: 'ap-modal-actions', style: 'justify-content:flex-start' }, [btnDefine, btnReview]),
+      aiStatus, out,
+    );
+  }
+
   openModal('Nuevo objetivo', [
+    aiBox,
     el('div', { class: 'ap-field' }, [el('label', { text: 'Objetivo' }), title]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Tipo' }), kind]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Key results' }), krList]),
-    el('button', { class: 'ap-side-add', type: 'button', text: '+ Agregar key result', onclick: addKr }),
+    el('button', { class: 'ap-side-add', type: 'button', text: '+ Agregar key result', onclick: () => addKr() }),
     warn, err,
   ], (close) => [
     el('button', { class: 'ap-btn ghost', text: 'Cancelar', onclick: close }),
@@ -487,6 +562,38 @@ export function closeCycleModal({ objectives, onSubmit }) {
         e.target.disabled = true;
         try { await onSubmit(scores); close(); }
         catch (er) { err.dataset.kind = 'error'; err.textContent = er.message; e.target.disabled = false; }
+      },
+    }),
+  ]);
+}
+
+// Panel de IA: configuración de proveedor/modelo (admin) + resumen de uso.
+export function aiPanelModal({ settings, isAdmin, usage, onSave }) {
+  const provider = el('select', { disabled: isAdmin ? null : 'true' }, [
+    el('option', { value: 'anthropic', text: 'Anthropic', selected: settings.provider === 'anthropic' ? 'true' : null }),
+    el('option', { value: 'openai', text: 'OpenAI', selected: settings.provider === 'openai' ? 'true' : null }),
+  ]);
+  const model = el('input', { type: 'text', value: settings.model || '', disabled: isAdmin ? null : 'true' });
+  const status = el('p', { class: 'ap-status' });
+  const u = usage || { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
+
+  const body = [
+    el('div', { class: 'ap-field' }, [el('label', { text: 'Proveedor' }), provider]),
+    el('div', { class: 'ap-field' }, [el('label', { text: 'Modelo' }), model]),
+    !isAdmin && el('p', { class: 'ap-muted', text: 'Solo un admin puede cambiar el proveedor/modelo.' }),
+    el('div', { class: 'ap-field' }, [
+      el('label', { text: 'Uso de IA (esta empresa)' }),
+      el('div', { class: 'ap-muted', text: `${u.calls} llamadas · ${u.inputTokens + u.outputTokens} tokens · ~US$${u.costUsd.toFixed(4)} (estimado)` }),
+    ]),
+    status,
+  ];
+  openModal('IA', body, (close) => [
+    el('button', { class: 'ap-btn ghost', text: 'Cerrar', onclick: close }),
+    isAdmin && el('button', {
+      class: 'ap-btn', text: 'Guardar', onclick: async (e) => {
+        e.target.disabled = true; status.dataset.kind = ''; status.textContent = 'Guardando…';
+        try { await onSave({ provider: provider.value, model: model.value.trim() }); close(); }
+        catch (er) { status.dataset.kind = 'error'; status.textContent = er.message; e.target.disabled = false; }
       },
     }),
   ]);
