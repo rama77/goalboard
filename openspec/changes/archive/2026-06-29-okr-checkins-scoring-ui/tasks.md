@@ -30,8 +30,8 @@
 
 ## 6. Verificación local (cierre condicionado a esto)
 
-- [ ] 6.1 Registrar check-in: valor/confianza/nota → KR se actualiza (trigger) y progreso cambia
-- [ ] 6.2 Historial muestra la serie en orden; rollup del objetivo refleja la confianza más floja
-- [ ] 6.3 Permisos: un member no puede check-in ajeno; un no-admin no ve/cierra el ciclo (RLS)
-- [ ] 6.4 Cerrar ciclo con scores → queda `cerrado` y de solo-lectura con los puntajes finales
-- [ ] 6.5 Consola limpia y UX consistente con mindboard
+- [x] 6.1 Registrar check-in: valor/confianza/nota → KR se actualiza (trigger) y progreso cambia
+- [x] 6.2 Historial muestra la serie en orden; rollup del objetivo refleja la confianza más floja
+- [x] 6.3 Permisos: un member no puede check-in ajeno; un no-admin no ve/cierra el ciclo (RLS)
+- [x] 6.4 Cerrar ciclo con scores → queda `cerrado` y de solo-lectura con los puntajes finales
+- [x] 6.5 Consola limpia y UX consistente con mindboard
