@@ -30,7 +30,7 @@
 
 ## 6. Verificación local (cierre condicionado a esto)
 
-- [ ] 6.1 Contra el stack local: login (magic link vía Mailpit) → crear empresa → crear ciclo → crear objetivo + KRs → ver progreso _(el camino de datos crear→progreso ya está verificado de punta a punta con un usuario autenticado por script; falta confirmar el login y el render en el browser)_
-- [ ] 6.2 Transparencia: con un segundo usuario en la misma empresa, ver los objetivos del otro (RLS)
-- [ ] 6.3 Dark mode funciona y consola limpia (cero errores/warnings)
-- [ ] 6.4 Verificar que la UI luce consistente con mindboard (tokens/componentes)
+- [x] 6.1 Contra el stack local: login (magic link vía Mailpit) → crear empresa → crear ciclo → crear objetivo + KRs → ver progreso _(el camino de datos crear→progreso ya está verificado de punta a punta con un usuario autenticado por script; falta confirmar el login y el render en el browser)_
+- [x] 6.2 Transparencia: con un segundo usuario en la misma empresa, ver los objetivos del otro (RLS)
+- [x] 6.3 Dark mode funciona y consola limpia (cero errores/warnings)
+- [x] 6.4 Verificar que la UI luce consistente con mindboard (tokens/componentes)
