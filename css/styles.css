@@ -117,6 +117,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 .ap-empty{color:var(--muted-foreground);font-size:.85rem;text-align:center;padding:2.5rem 1rem;border:1.5px dashed var(--border);border-radius:1rem;display:flex;flex-direction:column;gap:.75rem;align-items:center}
 
+/* Confianza (check-ins) */
+.ap-conf{display:inline-flex;align-items:center;gap:.3rem;font-size:.64rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;flex:0 0 auto}
+.ap-conf .cd{width:.5rem;height:.5rem;border-radius:999px}
+.ap-conf.ok{background:color-mix(in srgb,var(--success) 16%,transparent);color:var(--success)} .ap-conf.ok .cd{background:var(--success)}
+.ap-conf.warn{background:color-mix(in srgb,var(--warning) 20%,transparent);color:var(--warning)} .ap-conf.warn .cd{background:var(--warning)}
+.ap-conf.bad{background:color-mix(in srgb,var(--danger) 16%,transparent);color:var(--danger)} .ap-conf.bad .cd{background:var(--danger)}
+.ap-conf.none{background:var(--muted);color:var(--muted-foreground)} .ap-conf.none .cd{background:var(--muted-foreground)}
+
+/* Acciones chicas (check-in / historial) y score */
+.ap-kr-actions{display:flex;gap:.25rem;align-items:center}
+.ap-mini-btn{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .45rem;border-radius:.5rem;border:0;background:transparent;color:var(--muted-foreground);cursor:pointer;font-size:.7rem;font-weight:600;font-family:inherit}
+.ap-mini-btn:hover{background:var(--muted);color:var(--foreground)}
+.ap-score{font-size:.7rem;font-weight:800;font-variant-numeric:tabular-nums;padding:.1rem .45rem;border-radius:.45rem;background:var(--muted);color:var(--foreground);flex:0 0 auto}
+
+/* Historial de check-ins */
+.ap-history{display:flex;flex-direction:column;gap:.5rem;max-height:55vh;overflow:auto}
+.ap-history-item{border:1px solid var(--border);border-radius:.6rem;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.3rem;background:var(--background)}
+.ap-history-meta{font-size:.7rem;color:var(--muted-foreground);display:flex;gap:.5rem;justify-content:space-between;align-items:center}
+.ap-history-note{font-size:.8rem;white-space:pre-wrap}
+
+/* Cierre de ciclo (scoring) */
+.ap-score-row{display:flex;align-items:center;gap:.6rem}
+.ap-score-row .lbl{flex:1;font-size:.82rem;font-weight:600;min-width:0;overflow-wrap:break-word}
+.ap-score-row input{width:5.5rem;flex:0 0 auto}
+.ap-radio-group{display:flex;gap:.4rem;flex-wrap:wrap}
+.ap-radio{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);border-radius:.7rem;padding:.4rem .6rem;cursor:pointer;font-size:.8rem;font-weight:600;color:var(--muted-foreground)}
+.ap-radio input{accent-color:var(--brand-teal);margin:0}
+.ap-radio.sel{border-color:var(--brand-teal);color:var(--foreground)}
+.ap-guide{font-size:.74rem;color:var(--muted-foreground);background:var(--muted);border-radius:.6rem;padding:.5rem .6rem;margin:0}
+
 /* ===== Modal ===== */
 .ap-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:1rem;z-index:50}
 .ap-overlay.open{display:flex}

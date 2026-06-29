@@ -67,6 +67,24 @@ async function renderForUser(user) {
           await renderForUser(user);
         },
       }),
+      onCheckIn: (obj, kr) => ui.checkInModal({
+        kr,
+        onSubmit: async ({ value, confidence, note }) => {
+          await data.createCheckIn(activeOrg.id, kr.id, { value, confidence, note });
+          await renderForUser(user);
+        },
+      }),
+      onHistory: async (kr) => {
+        const [items, meId] = await Promise.all([data.listCheckIns(kr.id), data.getUserId()]);
+        ui.historyModal({ kr, items, meId });
+      },
+      onCloseCycle: (objs) => ui.closeCycleModal({
+        objectives: objs,
+        onSubmit: async (scores) => {
+          await data.closeCycle(activeCycle.id, scores);
+          await renderForUser(user);
+        },
+      }),
       onSignOut: () => signOut(),
     },
   });
