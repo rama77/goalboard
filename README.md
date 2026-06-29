@@ -25,15 +25,16 @@ los OKRs viven en una base compartida, no en el `localStorage` de un browser.
 ### 1. Crear el proyecto Supabase
 
 1. Entrá a <https://supabase.com> y creá un proyecto (el free tier alcanza).
-2. En **Project Settings → API** copiá:
-   - **Project URL**
-   - **anon public** key (clave pública; **no** la `service_role`).
-3. En **Authentication → Providers → Email** habilitá el login por email y
+2. En **Project Settings → Data API** copiá el **Project URL**.
+3. En **Project Settings → API Keys** copiá la **Publishable key**
+   (`sb_publishable_...`, clave pública). **No** uses la **Secret key**
+   (`sb_secret_...`) ni la legacy `service_role`.
+4. En **Authentication → Providers → Email** habilitá el login por email y
    asegurate de tener activado el **magic link** (Supabase lo trae por defecto).
-4. En **Authentication → URL Configuration** agregá la URL desde la que vas a
+5. En **Authentication → URL Configuration** agregá la URL desde la que vas a
    servir la app (p. ej. `http://localhost:8000` en local) como redirect válida.
-5. _(Más adelante)_ cuando exista el modelo de datos, vas a correr el SQL de
-   `supabase/schema.sql` en el **SQL Editor** para crear tablas y políticas RLS.
+6. Corré el SQL de `supabase/schema.sql` en el **SQL Editor** para crear las
+   tablas y políticas RLS.
 
 ### 2. Configurar el front-end
 
@@ -41,12 +42,13 @@ Editá `js/config.js` y reemplazá los valores de ejemplo por los de tu proyecto
 
 ```js
 export const SUPABASE_URL = 'https://TU-PROYECTO-ref.supabase.co';
-export const SUPABASE_ANON_KEY = 'tu-anon-public-key';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_...';
 ```
 
-> La anon key es **pública por diseño**: está pensada para vivir en el
+> La publishable key es **pública por diseño**: está pensada para vivir en el
 > front-end, y lo que protege los datos son las políticas RLS de Supabase.
-> Nunca pongas la `service_role` ni otros secretos en el front-end ni en el repo.
+> Nunca pongas la **secret key** (`sb_secret_...`) ni otros secretos en el
+> front-end ni en el repo.
 
 ### 3. Servir la app
 
@@ -72,10 +74,10 @@ Acordate de agregar esa URL como redirect válida en Supabase (paso 1.4).
 
 ## Variables de configuración
 
-| Variable            | Dónde         | Qué es                                      |
-| ------------------- | ------------- | ------------------------------------------- |
-| `SUPABASE_URL`      | `js/config.js`| Project URL de tu proyecto Supabase         |
-| `SUPABASE_ANON_KEY` | `js/config.js`| anon **public** key (pública, no secreta)   |
+| Variable                   | Dónde         | Qué es                                         |
+| -------------------------- | ------------- | ---------------------------------------------- |
+| `SUPABASE_URL`             | `js/config.js`| Project URL de tu proyecto Supabase            |
+| `SUPABASE_PUBLISHABLE_KEY` | `js/config.js`| publishable key `sb_publishable_...` (pública) |
 
 ## Estructura del repo
 

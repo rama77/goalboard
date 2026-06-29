@@ -1,3 +1,8 @@
+# Secretos — NUNCA al repo (la app no los usa; van en un gestor de contraseñas)
+.env
+.env.*
+*.secret
+
 # Sistema / editores
 .DS_Store
 .vscode/
