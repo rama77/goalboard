@@ -57,12 +57,13 @@ export async function createCycle(orgId, { name, cadence, parentCycleId = null }
 
 // --- Objetivos + Key Results -----------------------------------------------
 
-// Objetivos del ciclo (con sus KRs anidados). RLS da la transparencia intra-org.
+// Objetivos del ciclo (con sus KRs y los check-ins anidados, para la confianza
+// vigente). RLS da la transparencia intra-org.
 export async function listObjectives(orgId, cycleId) {
   return unwrap(
     await supabase
       .from('objectives')
-      .select('*, key_results(*)')
+      .select('*, key_results(*, check_ins(confidence, created_at))')
       .eq('organization_id', orgId)
       .eq('cycle_id', cycleId)
       .order('created_at', { ascending: true })
@@ -95,4 +96,56 @@ export async function createObjectiveWithKRs(orgId, cycleId, { title, kind, keyR
     objective.key_results = [];
   }
   return objective;
+}
+
+// --- Check-ins -------------------------------------------------------------
+
+// Registra un check-in sobre un KR. El trigger de la base actualiza el
+// current_value del KR (y su progreso). author_id = usuario actual (lo exige RLS).
+export async function createCheckIn(orgId, krId, { value, confidence, note }) {
+  const authorId = await currentUserId();
+  return unwrap(
+    await supabase
+      .from('check_ins')
+      .insert({
+        organization_id: orgId,
+        key_result_id: krId,
+        author_id: authorId,
+        value,
+        confidence,
+        note: note || null,
+      })
+      .select()
+      .single()
+  );
+}
+
+// Historial de check-ins de un KR (cronológico). Incluye author_id para marcar
+// "vos" vs otra persona en la UI.
+export async function listCheckIns(krId) {
+  return unwrap(
+    await supabase
+      .from('check_ins')
+      .select('value, confidence, note, created_at, author_id')
+      .eq('key_result_id', krId)
+      .order('created_at', { ascending: true })
+  );
+}
+
+// id del usuario actual (para distinguir autoría en la UI).
+export async function getUserId() {
+  return currentUserId();
+}
+
+// --- Cierre de ciclo + scoring ---------------------------------------------
+
+// Asigna scores 0..1 a los KRs y cierra el ciclo. Varias escrituras (sin
+// transacción cliente): si alguna falla, se propaga el error para reintentar.
+export async function closeCycle(cycleId, scores) {
+  for (const { krId, score } of scores) {
+    unwrap(await supabase.from('key_results').update({ score }).eq('id', krId));
+  }
+  return unwrap(
+    await supabase.from('cycles').update({ status: 'cerrado' }).eq('id', cycleId).select().single()
+  );
 }
