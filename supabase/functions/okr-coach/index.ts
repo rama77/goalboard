@@ -220,10 +220,11 @@ Deno.serve(async (req) => {
     const [pin, pout] = PRICING[model] ?? [0, 0];
     const estCost = out.cost ?? ((out.inTok / 1e6) * pin + (out.outTok / 1e6) * pout);
     const serviceClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    await serviceClient.from('ai_usage').insert({
+    const { error: usageErr } = await serviceClient.from('ai_usage').insert({
       organization_id: organizationId, user_id: userId, feature: mode,
       provider, model, input_tokens: out.inTok, output_tokens: out.outTok, est_cost_usd: estCost,
     });
+    if (usageErr) console.error('ai_usage insert failed:', usageErr.message);
 
     return json({ result: out.parsed, usage: { provider, model, input_tokens: out.inTok, output_tokens: out.outTok, est_cost_usd: estCost } });
   } catch (e) {

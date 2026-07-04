@@ -33,15 +33,15 @@
 - [x] 4b.3 Costo: usar el costo real de OpenRouter cuando viene; si no, el mapa de precios
 - [x] 4b.4 UI: opción "OpenRouter" en el selector + ayuda de formato de modelo (`proveedor/modelo`) y aviso de PDF
 - [x] 4b.5 `env.example`: `OPENROUTER_API_KEY`; documentar en README
-- [ ] 4b.6 Verificación local: con `OPENROUTER_API_KEY`, definir/revisar por texto funcionan; PDF+openrouter avisa; el uso queda registrado con costo real
+- [x] 4b.6 Verificación local: con `OPENROUTER_API_KEY`, definir/revisar por texto funcionan; PDF+openrouter avisa; el uso queda registrado con costo real
 
 ## 5. Verificación local (cierre condicionado a esto)
 
-- [ ] 5.1 Definir desde texto → propuestas de OKR editables y medibles
-- [ ] 5.2 Definir desde PDF → propuestas basadas en el documento
-- [ ] 5.3 Alineación: el borrador que aporta a un objetivo de empresa lo indica; el que no aporta, lo señala
-- [ ] 5.4 Foco: ante demasiados objetivos/KRs, propone un set acotado y prioriza
-- [ ] 5.5 Revisar: objetivo-que-es-tarea y KR sin número se detectan; OKR bien formado se confirma
+- [x] 5.1 Definir desde texto → propuestas de OKR editables y medibles _(verificado vía OpenRouter)_
+- [ ] 5.2 Definir desde PDF → propuestas basadas en el documento _(requiere Anthropic directo; cuenta Teams no administrable — pendiente)_
+- [x] 5.3 Alineación: el borrador que aporta a un objetivo de empresa lo indica; el que no aporta, lo señala _(verificado vía OpenRouter)_
+- [x] 5.4 Foco: ante demasiados objetivos/KRs, propone un set acotado y prioriza _(verificado vía OpenRouter)_
+- [x] 5.5 Revisar: objetivo-que-es-tarea y KR sin número se detectan; OKR bien formado se confirma _(verificado vía OpenRouter)_
 - [x] 5.6 Cambiar proveedor/modelo (admin) cambia el motor usado; sin key → avisa, no rompe
-- [ ] 5.7 Uso/costo: cada llamada deja registro; el resumen por empresa lo muestra (RLS aísla)
+- [x] 5.7 Uso/costo: cada llamada deja registro; el resumen por empresa lo muestra (RLS aísla) _(fix: grant INSERT a service_role)_
 - [x] 5.8 Opcional/no bloqueante: se puede crear y guardar sin IA. Consola limpia; keys nunca en el front
