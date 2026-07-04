@@ -64,12 +64,12 @@ export async function createCycle(orgId, { name, cadence, periodMonths, parentCy
 // --- Objetivos + Key Results -----------------------------------------------
 
 // Objetivos del ciclo (con sus KRs y los check-ins anidados, para la confianza
-// vigente). RLS da la transparencia intra-org.
+// vigente). Incluye el nombre del área. RLS da la transparencia intra-org.
 export async function listObjectives(orgId, cycleId) {
   return unwrap(
     await supabase
       .from('objectives')
-      .select('*, key_results(*, check_ins(confidence, created_at))')
+      .select('*, areas(name), key_results(*, check_ins(confidence, created_at))')
       .eq('organization_id', orgId)
       .eq('cycle_id', cycleId)
       .order('created_at', { ascending: true })
@@ -77,12 +77,20 @@ export async function listObjectives(orgId, cycleId) {
 }
 
 // Crea un objetivo (el usuario queda como dueño) y sus key results.
-export async function createObjectiveWithKRs(orgId, cycleId, { title, kind, keyResults }) {
+// level: 'empresa' | 'area' | 'individual'; areaId requerido si level='area';
+// parentObjectiveId: alineación opcional a un objetivo padre.
+export async function createObjectiveWithKRs(
+  orgId, cycleId,
+  { title, kind, keyResults, level = 'individual', areaId = null, parentObjectiveId = null },
+) {
   const ownerId = await currentUserId();
   const objective = unwrap(
     await supabase
       .from('objectives')
-      .insert({ organization_id: orgId, cycle_id: cycleId, owner_id: ownerId, title, kind })
+      .insert({
+        organization_id: orgId, cycle_id: cycleId, owner_id: ownerId, title, kind,
+        level, area_id: level === 'area' ? areaId : null, parent_objective_id: parentObjectiveId,
+      })
       .select()
       .single()
   );
@@ -102,6 +110,56 @@ export async function createObjectiveWithKRs(orgId, cycleId, { title, kind, keyR
     objective.key_results = [];
   }
   return objective;
+}
+
+// --- Áreas -----------------------------------------------------------------
+
+export async function listAreas(orgId) {
+  return unwrap(
+    await supabase.from('areas').select('*').eq('organization_id', orgId).order('name')
+  );
+}
+
+export async function createArea(orgId, name) {
+  return unwrap(
+    await supabase.from('areas').insert({ organization_id: orgId, name }).select().single()
+  );
+}
+
+// Miembros de un área (id, user_id, role). Se cruza con list_org_members para el email.
+export async function listAreaMembers(areaId) {
+  return unwrap(
+    await supabase.from('area_members').select('id, user_id, role').eq('area_id', areaId)
+  );
+}
+
+export async function addAreaMember(areaId, userId, role = 'miembro') {
+  return unwrap(
+    await supabase.from('area_members')
+      .upsert({ area_id: areaId, user_id: userId, role }, { onConflict: 'area_id,user_id' })
+      .select().single()
+  );
+}
+
+export async function removeAreaMember(areaId, userId) {
+  return unwrap(
+    await supabase.from('area_members').delete().eq('area_id', areaId).eq('user_id', userId)
+  );
+}
+
+// Miembros de la organización (id + email + rol), vía RPC (lee auth.users server-side).
+export async function listOrgMembers(orgId) {
+  return unwrap(await supabase.rpc('list_org_members', { org: orgId }));
+}
+
+// Objetivos de nivel empresa del ciclo (ancla de alineación para el coach).
+export async function listCompanyObjectives(orgId, cycleId) {
+  return unwrap(
+    await supabase.from('objectives')
+      .select('id, title, kind')
+      .eq('organization_id', orgId).eq('cycle_id', cycleId).eq('level', 'empresa')
+      .order('created_at', { ascending: true })
+  );
 }
 
 // --- Check-ins -------------------------------------------------------------

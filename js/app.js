@@ -47,6 +47,9 @@ async function renderForUser(user) {
   if (activeCycle) state.setActiveCycleId(user.id, activeOrg.id, activeCycle.id);
 
   const objectives = activeCycle ? await data.listObjectives(activeOrg.id, activeCycle.id) : [];
+  const areas = await data.listAreas(activeOrg.id);
+  // Objetivos de nivel empresa: ancla de alineación para el coach.
+  const companyObjectives = objectives.filter((o) => o.level === 'empresa').map((o) => ({ title: o.title, kind: o.kind }));
 
   ui.renderApp(root, {
     user, orgs, activeOrg, cycles, activeCycle, objectives,
@@ -62,21 +65,39 @@ async function renderForUser(user) {
         },
       }),
       onNewObjective: () => ui.newObjectiveModal({
+        isAdmin: activeOrg.role === 'admin',
+        areas: areas.map((a) => ({ id: a.id, name: a.name })),
+        alignTargets: objectives.map((o) => ({ id: o.id, title: o.title, level: o.level })),
         onSubmit: async (payload) => {
           await data.createObjectiveWithKRs(activeOrg.id, activeCycle.id, payload);
           await renderForUser(user);
         },
         ai: {
           define: (input) => data.aiAssist({
-            mode: 'definir', organizationId: activeOrg.id, input,
-            companyObjectives: objectives.map((o) => ({ title: o.title, kind: o.kind })),
+            mode: 'definir', organizationId: activeOrg.id, input, companyObjectives,
           }),
           review: (draft) => data.aiAssist({
-            mode: 'revisar', organizationId: activeOrg.id, draft,
-            companyObjectives: objectives.map((o) => ({ title: o.title, kind: o.kind })),
+            mode: 'revisar', organizationId: activeOrg.id, draft, companyObjectives,
           }),
         },
       }),
+      onOpenAreas: async () => {
+        const [freshAreas, orgMembers] = await Promise.all([
+          data.listAreas(activeOrg.id),
+          data.listOrgMembers(activeOrg.id),
+        ]);
+        const emailById = new Map(orgMembers.map((u) => [u.user_id, u.email]));
+        ui.areasModal({
+          isAdmin: activeOrg.role === 'admin',
+          areas: freshAreas, orgMembers,
+          onCreateArea: (name) => data.createArea(activeOrg.id, name),
+          onLoadMembers: async (areaId) => (await data.listAreaMembers(areaId)).map((m) => ({
+            user_id: m.user_id, role: m.role, email: emailById.get(m.user_id) || m.user_id,
+          })),
+          onAddMember: (areaId, userId, role) => data.addAreaMember(areaId, userId, role),
+          onRemoveMember: (areaId, userId) => data.removeAreaMember(areaId, userId),
+        });
+      },
       onOpenAI: async () => {
         const [settings, usage] = await Promise.all([
           data.getAISettings(activeOrg.id),
