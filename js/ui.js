@@ -208,7 +208,8 @@ export function renderApp(root, ctx) {
       el('button', { class: 'ap-icon-btn', title: 'IA', 'aria-label': 'IA', text: '✨', onclick: handlers.onOpenAI }),
       activeCycle && view.isAdmin && !view.readOnly && objectives.length > 0
         && el('button', { class: 'ap-btn ghost', text: 'Cerrar ciclo', onclick: () => handlers.onCloseCycle(objectives) }),
-      activeCycle && !view.readOnly && el('button', { class: 'ap-btn', text: '+ Nuevo objetivo', onclick: handlers.onNewObjective }),
+      activeCycle && !view.readOnly && el('button', { class: 'ap-btn ghost', text: '✨ Planificar con IA', onclick: handlers.onPlanWithAI }),
+      activeCycle && !view.readOnly && el('button', { class: 'ap-btn', text: '+ Objetivo', onclick: handlers.onNewObjective }),
     ]),
   ]);
 
@@ -401,6 +402,34 @@ export function newCycleModal({ defaultName, onSubmit }) {
   ]);
 }
 
+const LEVEL_LABEL = { empresa: 'Empresa', area: 'Área', individual: 'Individual' };
+
+// Fila editable de un key result (compacta). Devuelve el nodo con ._read().
+function krEditorRow(init = {}, onRemove) {
+  const t = el('input', { type: 'text', placeholder: 'Key result (medible)', value: init.title || '' });
+  const type = el('select', { class: 'ap-kr-type' }, [
+    el('option', { value: 'numerico', text: 'Número', selected: init.type === 'numerico' ? 'true' : null }),
+    el('option', { value: 'porcentaje', text: '%', selected: init.type === 'porcentaje' ? 'true' : null }),
+    el('option', { value: 'hito', text: 'Hito', selected: init.type === 'hito' ? 'true' : null }),
+  ]);
+  const start = el('input', { type: 'number', placeholder: 'Inicial', title: 'Inicial', value: String(init.start ?? 0) });
+  const target = el('input', { type: 'number', placeholder: 'Target', title: 'Target', value: init.target != null ? String(init.target) : '' });
+  const current = el('input', { type: 'number', placeholder: 'Actual', title: 'Actual', value: String(init.current ?? init.start ?? 0) });
+  const row = el('div', { class: 'ap-kr-edit' }, [
+    el('div', { class: 'ap-kr-edit-top' }, [
+      t, type,
+      el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); onRemove && onRemove(); } }),
+    ]),
+    el('div', { class: 'ap-kr-nums' }, [start, target, current]),
+  ]);
+  row._read = () => ({
+    title: t.value.trim(), type: type.value,
+    start_value: Number(start.value || 0), target_value: Number(target.value),
+    current_value: Number(current.value || 0),
+  });
+  return row;
+}
+
 // onSubmit({title, kind, keyResults, level, areaId, parentObjectiveId}) -> Promise
 // areas: [{id,name}]; alignTargets: [{id,title,level}] (candidatos a padre)
 export function newObjectiveModal({ onSubmit, ai = null, isAdmin = false, areas = [], alignTargets = [] }) {
@@ -419,7 +448,6 @@ export function newObjectiveModal({ onSubmit, ai = null, isAdmin = false, areas 
     areas.length
       ? areas.map((a) => el('option', { value: a.id, text: a.name }))
       : [el('option', { value: '', text: '(no hay áreas — creá una primero)' })]);
-  const LEVEL_LABEL = { empresa: 'Empresa', area: 'Área', individual: 'Individual' };
   const areaField = el('div', { class: 'ap-field', style: 'display:none' }, [el('label', { text: 'Área' }), area]);
   level.onchange = () => { areaField.style.display = level.value === 'area' ? '' : 'none'; };
   const align = el('select', {}, [
@@ -430,31 +458,7 @@ export function newObjectiveModal({ onSubmit, ai = null, isAdmin = false, areas 
   const warn = el('p', { class: 'ap-warn', style: 'display:none', text: 'Más de 5 key results: el objetivo pierde foco.' });
   const err = el('p', { class: 'ap-status' });
 
-  function krRow(init = {}) {
-    const t = el('input', { type: 'text', placeholder: 'Key result (medible)', value: init.title || '' });
-    const type = el('select', { class: 'ap-kr-type' }, [
-      el('option', { value: 'numerico', text: 'Número', selected: init.type === 'numerico' ? 'true' : null }),
-      el('option', { value: 'porcentaje', text: '%', selected: init.type === 'porcentaje' ? 'true' : null }),
-      el('option', { value: 'hito', text: 'Hito', selected: init.type === 'hito' ? 'true' : null }),
-    ]);
-    const start = el('input', { type: 'number', placeholder: 'Inicial', title: 'Inicial', value: String(init.start ?? 0) });
-    const target = el('input', { type: 'number', placeholder: 'Target', title: 'Target', value: init.target != null ? String(init.target) : '' });
-    const current = el('input', { type: 'number', placeholder: 'Actual', title: 'Actual', value: String(init.current ?? init.start ?? 0) });
-    // Compacto: título + tipo + quitar en una fila; inicial/target/actual en otra.
-    const row = el('div', { class: 'ap-kr-edit' }, [
-      el('div', { class: 'ap-kr-edit-top' }, [
-        t, type,
-        el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } }),
-      ]),
-      el('div', { class: 'ap-kr-nums' }, [start, target, current]),
-    ]);
-    row._read = () => ({
-      title: t.value.trim(), type: type.value,
-      start_value: Number(start.value || 0), target_value: Number(target.value),
-      current_value: Number(current.value || 0),
-    });
-    return row;
-  }
+  function krRow(init = {}) { return krEditorRow(init, refreshWarn); }
   function refreshWarn() { warn.style.display = krList.children.length > 5 ? '' : 'none'; }
   function addKr(init) { krList.append(krRow(init)); refreshWarn(); }
   addKr();
@@ -641,6 +645,114 @@ export function areasModal({ isAdmin, areas, orgMembers, onCreateArea, onLoadMem
   openModal('Áreas', [createRow, list, err], (close) => [
     el('button', { class: 'ap-btn ghost', text: 'Cerrar', onclick: close }),
   ]);
+}
+
+// Planificar con IA: genera varias propuestas desde una estrategia y crea en bloque.
+// isAdmin; areas:[{id,name}]; parents:[{id,title,level}] (anclas + candidatos a alinear).
+// onGenerate({text,pdf_base64}) -> res (aiStrategy); onCreate(items) -> {creados,fallidos}.
+export function strategyModal({ isAdmin = false, areas = [], parents = [], onGenerate, onCreate }) {
+  const text = el('textarea', { rows: '4', placeholder: 'Pegá la estrategia o tus notas (o subí un PDF)…' });
+  const pdf = el('input', { type: 'file', accept: 'application/pdf', style: 'display:none' });
+  const pdfName = el('span', { class: 'ap-file-name', text: 'Ningún archivo' });
+  pdf.onchange = () => { pdfName.textContent = pdf.files?.[0]?.name || 'Ningún archivo'; };
+  const pdfPicker = el('div', { class: 'ap-file' }, [el('label', { class: 'ap-file-btn' }, ['📎 Adjuntar PDF', pdf]), pdfName]);
+  const status = el('p', { class: 'ap-status' });
+  const listBox = el('div', { class: 'ap-obj-col' });
+  const cards = [];
+
+  function proposalCard(p) {
+    const lvl0 = (!isAdmin && p.level === 'empresa') ? 'area' : (p.level || 'individual');
+    const sel = el('input', { type: 'checkbox', checked: 'true', title: 'Incluir' });
+    const title = el('input', { type: 'text', value: p.title || '' });
+    const kind = el('select', {}, [
+      el('option', { value: 'comprometido', text: 'Comprometido', selected: p.kind !== 'aspiracional' ? 'true' : null }),
+      el('option', { value: 'aspiracional', text: 'Aspiracional', selected: p.kind === 'aspiracional' ? 'true' : null }),
+    ]);
+    const level = el('select', {}, [
+      el('option', { value: 'individual', text: 'Individual', selected: lvl0 === 'individual' ? 'true' : null }),
+      el('option', { value: 'area', text: 'Área', selected: lvl0 === 'area' ? 'true' : null }),
+      ...(isAdmin ? [el('option', { value: 'empresa', text: 'Empresa', selected: lvl0 === 'empresa' ? 'true' : null })] : []),
+    ]);
+    const area = el('select', {}, areas.length ? areas.map((a) => el('option', { value: a.id, text: a.name })) : [el('option', { value: '', text: '(sin áreas)' })]);
+    const areaField = el('div', { class: 'ap-field', style: lvl0 === 'area' ? '' : 'display:none' }, [el('label', { text: 'Área' }), area]);
+    level.onchange = () => { areaField.style.display = level.value === 'area' ? '' : 'none'; };
+    const parent = el('select', {}, [
+      el('option', { value: '', text: '— Sin alineación —' }),
+      ...parents.map((o) => el('option', { value: o.id, text: `${LEVEL_LABEL[o.level] || o.level}: ${o.title}`, selected: o.id === p.parentId ? 'true' : null })),
+    ]);
+    const krList = el('div', { class: 'ap-kr-list' });
+    (p.keyResults || []).forEach((kr) => krList.append(krEditorRow(kr)));
+    const card = el('div', { class: 'ap-kr-edit' }, [
+      el('div', { class: 'ap-kr-edit-top' }, [sel, title]),
+      el('div', { class: 'ap-field-row' }, [
+        el('div', { class: 'ap-field' }, [el('label', { text: 'Nivel' }), level]),
+        el('div', { class: 'ap-field' }, [el('label', { text: 'Tipo' }), kind]),
+      ]),
+      areaField,
+      el('div', { class: 'ap-field' }, [el('label', { text: 'Alinea a' }), parent]),
+      p.alignment ? el('p', { class: 'ap-ai-hint', text: p.alignment }) : null,
+      el('div', { class: 'ap-field' }, [el('label', { text: 'Key results' }), krList]),
+      el('button', { class: 'ap-side-add', type: 'button', text: '+ KR', onclick: () => krList.append(krEditorRow({})) }),
+    ]);
+    card._read = () => {
+      if (!sel.checked) return null;
+      return {
+        title: title.value.trim(), kind: kind.value, level: level.value,
+        areaId: level.value === 'area' ? area.value : null,
+        parentObjectiveId: parent.value || null,
+        keyResults: [...krList.children].map((r) => r._read()).filter((k) => k.title),
+      };
+    };
+    return card;
+  }
+
+  function renderProposals(proposals) {
+    cards.length = 0;
+    listBox.replaceChildren();
+    if (!proposals?.length) { listBox.append(el('p', { class: 'ap-muted', text: 'La IA no propuso objetivos.' })); return; }
+    proposals.forEach((p) => { const c = proposalCard(p); cards.push(c); listBox.append(c); });
+  }
+
+  const genBtn = el('button', { class: 'ap-btn', type: 'button', text: '✨ Generar', onclick: async () => {
+    status.dataset.kind = ''; status.textContent = 'Pensando…'; genBtn.disabled = true;
+    try {
+      const input = { text: text.value.trim() };
+      const file = pdf.files?.[0];
+      if (file) input.pdf_base64 = await fileToB64(file);
+      const res = await onGenerate(input);
+      if (res.error) { status.dataset.kind = 'error'; status.textContent = aiErr(res); return; }
+      renderProposals(res.result?.proposals);
+      const n = res.result?.proposals?.length || 0;
+      status.dataset.kind = 'ok'; status.textContent = n ? `${n} propuesta(s) — revisá, ajustá y creá las que quieras.` : 'Sin propuestas.';
+    } catch (e) { status.dataset.kind = 'error'; status.textContent = String(e.message || e); }
+    finally { genBtn.disabled = false; }
+  } });
+
+  openModal('Planificar con IA', [
+    el('div', { class: 'ap-field' }, [el('label', { text: 'Estrategia / notas' }), text]),
+    pdfPicker,
+    el('div', { class: 'ap-modal-actions', style: 'justify-content:flex-start' }, [genBtn]),
+    status,
+    listBox,
+  ], (close) => [
+    el('button', { class: 'ap-btn ghost', text: 'Cerrar', onclick: close }),
+    el('button', { class: 'ap-btn', text: 'Crear seleccionadas', onclick: async (e) => {
+      const items = cards.map((c) => c._read()).filter(Boolean);
+      if (!items.length) { status.dataset.kind = 'error'; status.textContent = 'No hay propuestas seleccionadas.'; return; }
+      for (const it of items) {
+        if (it.level === 'area' && !it.areaId) { status.dataset.kind = 'error'; status.textContent = `"${it.title}" es de área pero no tiene área asignada.`; return; }
+      }
+      e.target.disabled = true; status.dataset.kind = ''; status.textContent = 'Creando…';
+      try {
+        const { creados, fallidos } = await onCreate(items);
+        if (fallidos.length) {
+          status.dataset.kind = 'error';
+          status.textContent = `Creados ${creados.length}. No se pudieron crear ${fallidos.length}: ${fallidos.map((f) => f.title).join(', ')}.`;
+          e.target.disabled = false;
+        } else { close(); }
+      } catch (er) { status.dataset.kind = 'error'; status.textContent = er.message; e.target.disabled = false; }
+    } }),
+  ], { wide: true });
 }
 
 function fmtDate(s) { try { return new Date(s).toLocaleString(); } catch { return s; } }

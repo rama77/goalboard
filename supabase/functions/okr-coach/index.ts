@@ -51,6 +51,8 @@ const SCHEMA = {
         properties: {
           title: { type: 'string' },
           kind: { type: 'string', enum: ['comprometido', 'aspiracional'] },
+          level: { type: 'string', enum: ['empresa', 'area', 'individual'] },
+          parentId: { type: 'string' },
           alignment: { type: 'string' },
           keyResults: {
             type: 'array',
@@ -66,17 +68,23 @@ const SCHEMA = {
             },
           },
         },
-        required: ['title', 'kind', 'alignment', 'keyResults'],
+        required: ['title', 'kind', 'level', 'parentId', 'alignment', 'keyResults'],
       },
     },
   },
   required: ['summary', 'findings', 'proposals'],
 };
 
-function systemPrompt(companyObjectives: { title: string; kind?: string }[]) {
+function systemPrompt(
+  companyObjectives: { title: string; kind?: string }[],
+  anchors: { id: string; title: string; level: string }[] = [],
+) {
   const list = companyObjectives?.length
     ? companyObjectives.map((o) => `- ${o.title}${o.kind ? ` (${o.kind})` : ''}`).join('\n')
     : '(sin objetivos de empresa cargados)';
+  const anchorList = anchors?.length
+    ? anchors.map((a) => `- [${a.id}] ${a.title} (${a.level})`).join('\n')
+    : '(sin objetivos padres disponibles)';
   return [
     'Sos un coach de OKRs experto en el método de John Doerr ("Mide lo que importa").',
     'Principios: un Objetivo es un RESULTADO cualitativo e inspirador, NO una tarea/proyecto.',
@@ -85,12 +93,17 @@ function systemPrompt(companyObjectives: { title: string; kind?: string }[]) {
     'NUNCA guardes ni decidas por la persona: proponé y sugerí; ella edita y se queda como dueña.',
     'Favorecé el FOCO: si hay demasiados objetivos o KRs, proponé un set acotado y priorizá.',
     'Considerá el NIVEL del objetivo: "empresa" es amplio y estratégico; "area" baja a cómo el equipo contribuye; "individual" es concreto y medible. Encuadrá tu consejo al nivel.',
+    'Cada proposal DEBE traer `level` y `parentId` (vacío si no aplica).',
     '',
     'Objetivos de EMPRESA existentes (para ALINEAR/validar el aporte):',
     list,
     '',
+    'Objetivos PADRES disponibles para alinear (usá el id EXACTO entre corchetes como `parentId`):',
+    anchorList,
+    '',
     'En modo "definir": devolvé `proposals` (objetivos + KRs medibles) alineados a la empresa; en `alignment` indicá a qué objetivo de empresa aporta o si está desalineado. `findings` puede llevar notas de foco. ',
     'En modo "revisar": devolvé `findings` (severity info|warn, field, message, suggestion) sobre el borrador; `proposals` vacío. ',
+    'En modo "estrategia": devolvé VARIAS `proposals` desde el material, pocas y priorizadas (foco). En cada una sugerí el `level`. Las de nivel "area" e "individual" DEBEN alinearse a un padre: poné en `parentId` el id EXACTO de un objetivo de la lista de padres al que aporta; si ninguna encaja, dejá `parentId` vacío y marcá la desalineación en `alignment`. Las de nivel "empresa" van con `parentId` vacío. ',
     'Respondé SIEMPRE en español, conciso y accionable.',
   ].join('\n');
 }
@@ -99,6 +112,9 @@ function userPrompt(mode: string, input: { text?: string; level?: string }, draf
   if (mode === 'definir') {
     const lvl = input?.level ? `\nNivel objetivo: ${input.level}.` : '';
     return `Modo: definir.${lvl}\nEl usuario describe qué tiene que hacer:\n"""${input?.text ?? ''}"""\nProponé OKRs.`;
+  }
+  if (mode === 'estrategia') {
+    return `Modo: estrategia.\nMaterial (estrategia/notas):\n"""${input?.text ?? ''}"""\nProponé un set acotado de OKRs (varios objetivos) con su nivel y, para area/individual, su parentId alineado a un objetivo padre.`;
   }
   return `Modo: revisar.\nBorrador a revisar (JSON, incluye su nivel):\n${JSON.stringify(draft ?? {}, null, 2)}\nDevolvé hallazgos.`;
 }
@@ -182,8 +198,8 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     const body = await req.json();
-    const { mode, organizationId, input = {}, draft = null, companyObjectives = [] } = body;
-    if (!['definir', 'revisar'].includes(mode)) return json({ error: 'bad_mode' }, 400);
+    const { mode, organizationId, input = {}, draft = null, companyObjectives = [], anchors = [] } = body;
+    if (!['definir', 'revisar', 'estrategia'].includes(mode)) return json({ error: 'bad_mode' }, 400);
     if (!organizationId) return json({ error: 'org_required' }, 400);
 
     // Verificar membresía (RLS deja leer la propia membership).
@@ -204,12 +220,12 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: 'provider_not_configured', provider, available: false });
 
     // El PDF es nativo de Anthropic; con otros proveedores avisamos en vez de ignorarlo.
-    const wantsPdf = mode === 'definir' && !!input.pdf_base64;
+    const wantsPdf = (mode === 'definir' || mode === 'estrategia') && !!input.pdf_base64;
     if (wantsPdf && provider !== 'anthropic') {
       return json({ error: 'pdf_needs_anthropic', provider, available: true });
     }
 
-    const sys = systemPrompt(companyObjectives);
+    const sys = systemPrompt(companyObjectives, anchors);
     const user = userPrompt(mode, input, draft);
 
     let out: { parsed: unknown; inTok: number; outTok: number; cost?: number };
