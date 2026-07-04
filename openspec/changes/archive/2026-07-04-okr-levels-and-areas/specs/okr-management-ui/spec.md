@@ -1,47 +1,4 @@
-# okr-management-ui Specification
-
-## Purpose
-TBD - created by archiving change okr-app-ui-mvp. Update Purpose after archive.
-## Requirements
-### Requirement: Seleccionar el ciclo a visualizar
-
-La app SHALL permitir ver los ciclos de la empresa activa y seleccionar uno como
-**ciclo activo**, y SHALL permitir crear un ciclo nuevo (nombre + cadencia anual o
-trimestral). Las vistas de objetivos SHALL mostrar los del ciclo seleccionado.
-
-#### Scenario: Crear el primer ciclo
-
-- **WHEN** la empresa activa no tiene ningún ciclo
-- **THEN** la app invita a crear uno (p. ej. el año actual, anual) y, al crearlo,
-  pasa a ser el ciclo activo
-
-#### Scenario: Cambiar de ciclo
-
-- **WHEN** existen varios ciclos y el usuario selecciona otro
-- **THEN** la lista de objetivos se actualiza para mostrar los de ese ciclo
-
-### Requirement: Ver objetivos con sus key results y progreso
-
-La app SHALL listar los objetivos de la empresa y ciclo activos, mostrando para
-cada uno su título, su tipo (comprometido/aspiracional), su dueño, y sus key
-results con el **progreso calculado** (barra/porcentaje). SHALL mostrar todos los
-objetivos visibles según RLS (transparencia dentro de la organización).
-
-#### Scenario: Lista con progreso
-
-- **WHEN** el ciclo activo tiene objetivos con key results
-- **THEN** cada objetivo se muestra como una card con sus KRs y una barra de
-  progreso derivada del progreso de los KRs
-
-#### Scenario: Estado vacío
-
-- **WHEN** el ciclo activo no tiene objetivos
-- **THEN** la app muestra un estado vacío que invita a crear el primer objetivo
-
-#### Scenario: Transparencia
-
-- **WHEN** otra persona de la empresa cargó objetivos
-- **THEN** el usuario los ve también (no solo los propios), respetando RLS
+## MODIFIED Requirements
 
 ### Requirement: Crear objetivo con sus key results
 
@@ -75,6 +32,8 @@ usuario puede crear según sus permisos (p. ej. `empresa` solo a admin).
 - **WHEN** el usuario agrega más de 5 key results a un objetivo
 - **THEN** la app advierte que el objetivo está perdiendo foco (sin bloquear)
 
+## ADDED Requirements
+
 ### Requirement: Gestión de áreas
 
 La app SHALL permitir a un `admin` crear áreas y asignar/quitar miembros con rol
@@ -101,4 +60,3 @@ contribuye cada uno).
 - **WHEN** el usuario abre la vista de objetivos del ciclo activo
 - **THEN** ve los objetivos organizados por nivel y puede identificar, para cada uno, el
   objetivo padre al que se alinea
-

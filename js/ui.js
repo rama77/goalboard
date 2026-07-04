@@ -204,8 +204,9 @@ export function renderApp(root, ctx) {
     ]),
     el('div', { class: 'ap-actions' }, [
       themeBtn(),
+      el('button', { class: 'ap-icon-btn', title: 'Áreas', 'aria-label': 'Áreas', text: '👥', onclick: handlers.onOpenAreas }),
       el('button', { class: 'ap-icon-btn', title: 'IA', 'aria-label': 'IA', text: '✨', onclick: handlers.onOpenAI }),
-      activeCycle && view.isAdmin && !view.readOnly && objectives.length
+      activeCycle && view.isAdmin && !view.readOnly && objectives.length > 0
         && el('button', { class: 'ap-btn ghost', text: 'Cerrar ciclo', onclick: () => handlers.onCloseCycle(objectives) }),
       activeCycle && !view.readOnly && el('button', { class: 'ap-btn', text: '+ Nuevo objetivo', onclick: handlers.onNewObjective }),
     ]),
@@ -238,10 +239,24 @@ function objectivesView(objectives, activeCycle, view) {
       !view.readOnly && el('button', { class: 'ap-btn', text: '+ Crear el primer objetivo', onclick: handlers.onNewObjective }),
     ]);
   }
-  return el('div', { class: 'ap-okr-grid' }, objectives.map((o) => objectiveCard(o, view)));
+  // Cascada: agrupar por nivel (empresa → áreas → individuales).
+  const byId = new Map(objectives.map((o) => [o.id, o]));
+  const sections = [
+    { key: 'empresa', label: 'Empresa' },
+    { key: 'area', label: 'Áreas' },
+    { key: 'individual', label: 'Individuales' },
+  ].map(({ key, label }) => {
+    const items = objectives.filter((o) => (o.level || 'individual') === key);
+    if (!items.length) return null;
+    return el('section', { class: 'ap-level' }, [
+      el('div', { class: 'ap-nav-label', text: label }),
+      el('div', { class: 'ap-okr-grid' }, items.map((o) => objectiveCard(o, view, byId))),
+    ]);
+  }).filter(Boolean);
+  return el('div', { class: 'ap-levels' }, sections);
 }
 
-function objectiveCard(obj, view) {
+function objectiveCard(obj, view, byId = null) {
   const ratio = objectiveProgress(obj);
   const krs = (obj.key_results || []).map((kr) => {
     const r = Number(kr.progress || 0);
@@ -267,7 +282,15 @@ function objectiveCard(obj, view) {
       el('div', { class: 'ap-card-title', text: obj.title }),
       el('span', { class: `ap-otype ${obj.kind}`, text: obj.kind }),
     ]),
-    el('div', { class: 'ap-card-meta' }, [confBadge(objConf), view.readOnly && el('span', { class: 'ap-score', text: `score ${fmt(objectiveScore(obj))}` })]),
+    el('div', { class: 'ap-card-meta' }, [
+      confBadge(objConf),
+      obj.level === 'area' && obj.areas?.name && el('span', { class: 'ap-lvl', text: obj.areas.name }),
+      (() => {
+        const p = obj.parent_objective_id && byId?.get(obj.parent_objective_id);
+        return p ? el('span', { class: 'ap-align', text: `→ ${p.title}` }) : null;
+      })(),
+      view.readOnly && el('span', { class: 'ap-score', text: `score ${fmt(objectiveScore(obj))}` }),
+    ]),
     el('div', { class: 'ap-obj-progress' }, [progressBar(ratio), el('span', { class: 'pct', text: `${Math.round(ratio * 100)}%` })]),
     krs.length ? el('div', { class: 'ap-kr-list' }, krs) : el('span', { class: 'ap-muted', text: 'Sin key results.' }),
   ]);
@@ -378,12 +401,30 @@ export function newCycleModal({ defaultName, onSubmit }) {
   ]);
 }
 
-// onSubmit({title, kind, keyResults}) -> Promise
-export function newObjectiveModal({ onSubmit, ai = null }) {
+// onSubmit({title, kind, keyResults, level, areaId, parentObjectiveId}) -> Promise
+// areas: [{id,name}]; alignTargets: [{id,title,level}] (candidatos a padre)
+export function newObjectiveModal({ onSubmit, ai = null, isAdmin = false, areas = [], alignTargets = [] }) {
   const title = el('input', { type: 'text', placeholder: 'Ej: Crecer en el mercado' });
   const kind = el('select', {}, [
     el('option', { value: 'comprometido', text: 'Comprometido' }),
     el('option', { value: 'aspiracional', text: 'Aspiracional (moonshot)' }),
+  ]);
+  // Nivel: empresa solo si es admin.
+  const level = el('select', {}, [
+    el('option', { value: 'individual', text: 'Individual' }),
+    el('option', { value: 'area', text: 'Área' }),
+    ...(isAdmin ? [el('option', { value: 'empresa', text: 'Empresa' })] : []),
+  ]);
+  const area = el('select', {},
+    areas.length
+      ? areas.map((a) => el('option', { value: a.id, text: a.name }))
+      : [el('option', { value: '', text: '(no hay áreas — creá una primero)' })]);
+  const LEVEL_LABEL = { empresa: 'Empresa', area: 'Área', individual: 'Individual' };
+  const areaField = el('div', { class: 'ap-field', style: 'display:none' }, [el('label', { text: 'Área' }), area]);
+  level.onchange = () => { areaField.style.display = level.value === 'area' ? '' : 'none'; };
+  const align = el('select', {}, [
+    el('option', { value: '', text: '— Sin alineación —' }),
+    ...alignTargets.map((o) => el('option', { value: o.id, text: `${LEVEL_LABEL[o.level] || o.level}: ${o.title}` })),
   ]);
   const krList = el('div', { class: 'ap-kr-list' });
   const warn = el('p', { class: 'ap-warn', style: 'display:none', text: 'Más de 5 key results: el objetivo pierde foco.' });
@@ -391,22 +432,21 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
 
   function krRow(init = {}) {
     const t = el('input', { type: 'text', placeholder: 'Key result (medible)', value: init.title || '' });
-    const type = el('select', {}, [
+    const type = el('select', { class: 'ap-kr-type' }, [
       el('option', { value: 'numerico', text: 'Número', selected: init.type === 'numerico' ? 'true' : null }),
       el('option', { value: 'porcentaje', text: '%', selected: init.type === 'porcentaje' ? 'true' : null }),
       el('option', { value: 'hito', text: 'Hito', selected: init.type === 'hito' ? 'true' : null }),
     ]);
-    const start = el('input', { type: 'number', placeholder: 'Inicial', value: String(init.start ?? 0) });
-    const target = el('input', { type: 'number', placeholder: 'Target', value: init.target != null ? String(init.target) : '' });
-    const current = el('input', { type: 'number', placeholder: 'Actual', value: String(init.current ?? init.start ?? 0) });
+    const start = el('input', { type: 'number', placeholder: 'Inicial', title: 'Inicial', value: String(init.start ?? 0) });
+    const target = el('input', { type: 'number', placeholder: 'Target', title: 'Target', value: init.target != null ? String(init.target) : '' });
+    const current = el('input', { type: 'number', placeholder: 'Actual', title: 'Actual', value: String(init.current ?? init.start ?? 0) });
+    // Compacto: título + tipo + quitar en una fila; inicial/target/actual en otra.
     const row = el('div', { class: 'ap-kr-edit' }, [
-      el('div', { class: 'ap-kr-edit-top' }, [t, el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } })]),
-      type,
-      el('div', { class: 'ap-field-row' }, [
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Inicial' }), start]),
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Target' }), target]),
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Actual' }), current]),
+      el('div', { class: 'ap-kr-edit-top' }, [
+        t, type,
+        el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } }),
       ]),
+      el('div', { class: 'ap-kr-nums' }, [start, target, current]),
     ]);
     row._read = () => ({
       title: t.value.trim(), type: type.value,
@@ -422,7 +462,7 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
   // --- Controles de IA (opcionales) ---
   const aiBox = el('details', { class: 'ap-ai-box', open: 'true', style: ai ? '' : 'display:none' });
   function readDraft() {
-    return { title: title.value.trim(), kind: kind.value, keyResults: [...krList.children].map((r) => r._read()).filter((k) => k.title) };
+    return { title: title.value.trim(), kind: kind.value, level: level.value, keyResults: [...krList.children].map((r) => r._read()).filter((k) => k.title) };
   }
   function fillFromProposal(p) {
     title.value = p.title || '';
@@ -457,7 +497,7 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
     const btnDefine = el('button', { class: 'ap-btn', type: 'button', text: '✨ Definir con IA', onclick: async () => {
       aiStatus.dataset.kind = ''; aiStatus.textContent = 'Pensando…'; btnDefine.disabled = true;
       try {
-        const input = { text: defText.value.trim() };
+        const input = { text: defText.value.trim(), level: level.value };
         const file = pdf.files?.[0];
         if (file) input.pdf_base64 = await fileToB64(file);
         const res = await ai.define(input);
@@ -496,7 +536,12 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
 
   const formCol = el('div', { class: 'ap-obj-col' }, [
     el('div', { class: 'ap-field' }, [el('label', { text: 'Objetivo' }), title]),
-    el('div', { class: 'ap-field' }, [el('label', { text: 'Tipo' }), kind]),
+    el('div', { class: 'ap-field-row' }, [
+      el('div', { class: 'ap-field' }, [el('label', { text: 'Nivel' }), level]),
+      el('div', { class: 'ap-field' }, [el('label', { text: 'Tipo' }), kind]),
+    ]),
+    areaField,
+    el('div', { class: 'ap-field' }, [el('label', { text: 'Alinea a (opcional)' }), align]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Key results' }), krList]),
     el('button', { class: 'ap-side-add', type: 'button', text: '+ Agregar key result', onclick: () => addKr() }),
     warn, err,
@@ -513,17 +558,89 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
         const krs = [...krList.children].map((r) => r._read()).filter((k) => k.title);
         err.dataset.kind = '';
         if (!t) { err.dataset.kind = 'error'; err.textContent = 'El objetivo necesita un título.'; return; }
+        if (level.value === 'area' && !area.value) { err.dataset.kind = 'error'; err.textContent = 'Un objetivo de área necesita un área.'; return; }
         for (const k of krs) {
           if (k.type !== 'hito' && !Number.isFinite(k.target_value)) {
             err.dataset.kind = 'error'; err.textContent = 'Cada key result necesita un target.'; return;
           }
         }
         e.target.disabled = true;
-        try { await onSubmit({ title: t, kind: kind.value, keyResults: krs }); close(); }
+        try {
+          await onSubmit({
+            title: t, kind: kind.value, keyResults: krs,
+            level: level.value,
+            areaId: level.value === 'area' ? area.value : null,
+            parentObjectiveId: align.value || null,
+          });
+          close();
+        }
         catch (er) { err.dataset.kind = 'error'; err.textContent = er.message; e.target.disabled = false; }
       },
     }),
   ], { wide: !!ai });
+}
+
+// Gestión de áreas. Callbacks: onCreateArea(name), onLoadMembers(areaId) -> [{user_id,email,role}],
+// onAddMember(areaId,userId,role), onRemoveMember(areaId,userId). orgMembers: [{user_id,email}].
+export function areasModal({ isAdmin, areas, orgMembers, onCreateArea, onLoadMembers, onAddMember, onRemoveMember }) {
+  const err = el('p', { class: 'ap-status' });
+  const list = el('div', { class: 'ap-kr-list' });
+
+  async function renderMembers(areaId, box) {
+    box.replaceChildren(el('p', { class: 'ap-muted', text: 'Cargando…' }));
+    try {
+      const members = await onLoadMembers(areaId);
+      box.replaceChildren();
+      if (!members.length) box.append(el('p', { class: 'ap-muted', text: 'Sin miembros.' }));
+      members.forEach((m) => box.append(el('div', { class: 'ap-file' }, [
+        el('span', { class: 'ap-file-name', text: `${m.email} · ${m.role}` }),
+        isAdmin ? el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: async () => {
+          try { await onRemoveMember(areaId, m.user_id); await renderMembers(areaId, box); } catch (e) { err.dataset.kind = 'error'; err.textContent = e.message; }
+        } }) : null,
+      ])));
+      if (isAdmin) {
+        const who = el('select', {}, orgMembers.map((u) => el('option', { value: u.user_id, text: u.email })));
+        const role = el('select', {}, [el('option', { value: 'miembro', text: 'Miembro' }), el('option', { value: 'lider', text: 'Líder' })]);
+        box.append(el('div', { class: 'ap-file', style: 'margin-top:.4rem' }, [
+          who, role,
+          el('button', { class: 'ap-btn ghost', type: 'button', text: 'Agregar', onclick: async () => {
+            if (!who.value) return;
+            try { await onAddMember(areaId, who.value, role.value); await renderMembers(areaId, box); } catch (e) { err.dataset.kind = 'error'; err.textContent = e.message; }
+          } }),
+        ]));
+      }
+    } catch (e) { box.replaceChildren(el('p', { class: 'ap-status', dataset: { kind: 'error' }, text: e.message })); }
+  }
+
+  function renderList() {
+    list.replaceChildren();
+    if (!areas.length) list.append(el('p', { class: 'ap-muted', text: 'No hay áreas todavía.' }));
+    areas.forEach((a) => {
+      const box = el('div', { class: 'ap-ai-body', style: 'padding:.5rem 0 0' });
+      const det = el('details', { class: 'ap-ai-box' }, [
+        el('summary', { text: a.name }),
+        el('div', { style: 'padding:0 .75rem .5rem' }, [box]),
+      ]);
+      det.addEventListener('toggle', () => { if (det.open && !box.dataset.loaded) { box.dataset.loaded = '1'; renderMembers(a.id, box); } });
+      list.append(det);
+    });
+  }
+  renderList();
+
+  const newName = el('input', { type: 'text', placeholder: 'Nombre del área' });
+  const createRow = isAdmin ? el('div', { class: 'ap-file' }, [
+    newName,
+    el('button', { class: 'ap-btn', type: 'button', text: 'Crear área', onclick: async () => {
+      const n = newName.value.trim();
+      if (!n) { err.dataset.kind = 'error'; err.textContent = 'Poné un nombre.'; return; }
+      try { const a = await onCreateArea(n); areas.push(a); newName.value = ''; err.textContent = ''; renderList(); }
+      catch (e) { err.dataset.kind = 'error'; err.textContent = e.message; }
+    } }),
+  ]) : el('p', { class: 'ap-muted', text: 'Solo un admin puede crear o editar áreas.' });
+
+  openModal('Áreas', [createRow, list, err], (close) => [
+    el('button', { class: 'ap-btn ghost', text: 'Cerrar', onclick: close }),
+  ]);
 }
 
 function fmtDate(s) { try { return new Date(s).toLocaleString(); } catch { return s; } }

@@ -84,8 +84,9 @@ function systemPrompt(companyObjectives: { title: string; kind?: string }[]) {
     'Distinguí objetivos comprometidos vs aspiracionales (moonshots).',
     'NUNCA guardes ni decidas por la persona: proponé y sugerí; ella edita y se queda como dueña.',
     'Favorecé el FOCO: si hay demasiados objetivos o KRs, proponé un set acotado y priorizá.',
+    'Considerá el NIVEL del objetivo: "empresa" es amplio y estratégico; "area" baja a cómo el equipo contribuye; "individual" es concreto y medible. Encuadrá tu consejo al nivel.',
     '',
-    'OKRs ya existentes de la empresa (para ALINEAR/validar el aporte):',
+    'Objetivos de EMPRESA existentes (para ALINEAR/validar el aporte):',
     list,
     '',
     'En modo "definir": devolvé `proposals` (objetivos + KRs medibles) alineados a la empresa; en `alignment` indicá a qué objetivo de empresa aporta o si está desalineado. `findings` puede llevar notas de foco. ',
@@ -94,11 +95,12 @@ function systemPrompt(companyObjectives: { title: string; kind?: string }[]) {
   ].join('\n');
 }
 
-function userPrompt(mode: string, input: { text?: string }, draft: unknown) {
+function userPrompt(mode: string, input: { text?: string; level?: string }, draft: unknown) {
   if (mode === 'definir') {
-    return `Modo: definir.\nEl usuario describe qué tiene que hacer:\n"""${input?.text ?? ''}"""\nProponé OKRs.`;
+    const lvl = input?.level ? `\nNivel objetivo: ${input.level}.` : '';
+    return `Modo: definir.${lvl}\nEl usuario describe qué tiene que hacer:\n"""${input?.text ?? ''}"""\nProponé OKRs.`;
   }
-  return `Modo: revisar.\nBorrador a revisar (JSON):\n${JSON.stringify(draft ?? {}, null, 2)}\nDevolvé hallazgos.`;
+  return `Modo: revisar.\nBorrador a revisar (JSON, incluye su nivel):\n${JSON.stringify(draft ?? {}, null, 2)}\nDevolvé hallazgos.`;
 }
 
 async function callAnthropic(key: string, model: string, sys: string, user: string, pdfB64?: string) {
