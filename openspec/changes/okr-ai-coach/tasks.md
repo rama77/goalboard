@@ -26,6 +26,15 @@
 - [x] 4.1 `supabase/functions/.env` con la(s) key(s) (gitignored); documentar en el README
 - [x] 4.2 `supabase functions serve` y confirmar respuesta local
 
+## 4b. Proveedor OpenRouter (gateway agregador)
+
+- [x] 4b.1 Edge Function: `callOpenRouter` (OpenAI-compatible, base URL propia, `usage.include` para costo real) + ruteo por `provider === 'openrouter'` (key `OPENROUTER_API_KEY`)
+- [x] 4b.2 PDF-guard: `definir` con PDF y proveedor ≠ anthropic → aviso suave `pdf_needs_anthropic` (no rompe, no registra uso)
+- [x] 4b.3 Costo: usar el costo real de OpenRouter cuando viene; si no, el mapa de precios
+- [x] 4b.4 UI: opción "OpenRouter" en el selector + ayuda de formato de modelo (`proveedor/modelo`) y aviso de PDF
+- [x] 4b.5 `env.example`: `OPENROUTER_API_KEY`; documentar en README
+- [ ] 4b.6 Verificación local: con `OPENROUTER_API_KEY`, definir/revisar por texto funcionan; PDF+openrouter avisa; el uso queda registrado con costo real
+
 ## 5. Verificación local (cierre condicionado a esto)
 
 - [ ] 5.1 Definir desde texto → propuestas de OKR editables y medibles

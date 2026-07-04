@@ -99,13 +99,15 @@ goalboard/
 goalboard puede ayudarte a **definir** OKRs (desde texto o un PDF, alineándolos a
 los de tu empresa) y a **revisarlos**. La IA corre en una **Edge Function**
 (`supabase/functions/okr-coach`), que guarda la API key del proveedor **del lado
-servidor** — nunca en el front. Es agnóstica: elegís proveedor (Anthropic / OpenAI)
-y modelo por empresa.
+servidor** — nunca en el front. Es agnóstica: elegís proveedor (Anthropic / OpenAI
+/ **OpenRouter**) y modelo por empresa. OpenRouter es un gateway que, con una sola
+key, da acceso a muchos modelos (el modelo se escribe `proveedor/modelo`, p. ej.
+`anthropic/claude-opus-4-8`); el modo PDF, en cambio, requiere Anthropic directo.
 
 Para usarla en local:
 
 1. Copiá `supabase/functions/env.example` a `supabase/functions/.env` (gitignored)
-   y completá la key del proveedor (p. ej. `ANTHROPIC_API_KEY`).
+   y completá la key del proveedor (p. ej. `ANTHROPIC_API_KEY` u `OPENROUTER_API_KEY`).
 2. Serví la función: `supabase functions serve okr-coach`.
 3. En la app, usá el botón **✨** (config de proveedor/modelo + uso) y, en el modal
    de nuevo objetivo, **"Definir con IA"** / **"Revisar con IA"**.

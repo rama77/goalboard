@@ -136,6 +136,35 @@ async function callOpenAI(key: string, model: string, sys: string, user: string)
   return { parsed: JSON.parse(text), inTok: data.usage?.prompt_tokens ?? 0, outTok: data.usage?.completion_tokens ?? 0 };
 }
 
+// OpenRouter: gateway OpenAI-compatible a muchos modelos. `model` lleva prefijo de
+// proveedor (ej: "anthropic/claude-opus-4-8"). `usage.include` pide el costo real.
+async function callOpenRouter(key: string, model: string, sys: string, user: string) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'content-type': 'application/json',
+      'HTTP-Referer': 'https://github.com/rama77/goalboard',
+      'X-Title': 'goalboard',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
+      response_format: { type: 'json_schema', json_schema: { name: 'okr_coach', schema: SCHEMA, strict: true } },
+      usage: { include: true },
+    }),
+  });
+  if (!res.ok) throw new Error(`openrouter ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content ?? '{}';
+  return {
+    parsed: JSON.parse(text),
+    inTok: data.usage?.prompt_tokens ?? 0,
+    outTok: data.usage?.completion_tokens ?? 0,
+    cost: typeof data.usage?.cost === 'number' ? data.usage.cost : undefined,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -166,20 +195,30 @@ Deno.serve(async (req) => {
     const provider = settings?.provider ?? 'anthropic';
     const model = settings?.model ?? 'claude-opus-4-8';
 
-    const keyName = provider === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY';
+    const keyName = provider === 'openai' ? 'OPENAI_API_KEY'
+      : provider === 'openrouter' ? 'OPENROUTER_API_KEY'
+      : 'ANTHROPIC_API_KEY';
     const apiKey = Deno.env.get(keyName);
     if (!apiKey) return json({ error: 'provider_not_configured', provider, available: false });
+
+    // El PDF es nativo de Anthropic; con otros proveedores avisamos en vez de ignorarlo.
+    const wantsPdf = mode === 'definir' && !!input.pdf_base64;
+    if (wantsPdf && provider !== 'anthropic') {
+      return json({ error: 'pdf_needs_anthropic', provider, available: true });
+    }
 
     const sys = systemPrompt(companyObjectives);
     const user = userPrompt(mode, input, draft);
 
-    let out;
+    let out: { parsed: unknown; inTok: number; outTok: number; cost?: number };
     if (provider === 'openai') out = await callOpenAI(apiKey, model, sys, user);
-    else out = await callAnthropic(apiKey, model, sys, user, mode === 'definir' ? input.pdf_base64 : undefined);
+    else if (provider === 'openrouter') out = await callOpenRouter(apiKey, model, sys, user);
+    else out = await callAnthropic(apiKey, model, sys, user, wantsPdf ? input.pdf_base64 : undefined);
 
-    // Registrar uso (service role; ai_usage no tiene policy de insert).
+    // Registrar uso (service role; ai_usage no tiene policy de insert). OpenRouter
+    // devuelve costo real; para el resto se estima con el mapa de precios.
     const [pin, pout] = PRICING[model] ?? [0, 0];
-    const estCost = (out.inTok / 1e6) * pin + (out.outTok / 1e6) * pout;
+    const estCost = out.cost ?? ((out.inTok / 1e6) * pin + (out.outTok / 1e6) * pout);
     const serviceClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     await serviceClient.from('ai_usage').insert({
       organization_id: organizationId, user_id: userId, feature: mode,

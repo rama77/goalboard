@@ -299,6 +299,7 @@ function fileToB64(file) {
 // Mensaje legible para errores suaves de la IA.
 function aiErr(res) {
   if (res.error === 'provider_not_configured') return 'La IA no está configurada (falta la API key del proveedor).';
+  if (res.error === 'pdf_needs_anthropic') return 'El PDF solo funciona con el proveedor Anthropic. Cambiá el proveedor o pegá el texto.';
   if (res.error === 'auth_required') return 'Necesitás estar logueado para usar la IA.';
   if (res.error === 'forbidden') return 'No tenés acceso a esta empresa.';
   return 'No se pudo usar la IA: ' + (res.detail || res.error || 'error');
@@ -572,14 +573,16 @@ export function aiPanelModal({ settings, isAdmin, usage, onSave }) {
   const provider = el('select', { disabled: isAdmin ? null : 'true' }, [
     el('option', { value: 'anthropic', text: 'Anthropic', selected: settings.provider === 'anthropic' ? 'true' : null }),
     el('option', { value: 'openai', text: 'OpenAI', selected: settings.provider === 'openai' ? 'true' : null }),
+    el('option', { value: 'openrouter', text: 'OpenRouter', selected: settings.provider === 'openrouter' ? 'true' : null }),
   ]);
   const model = el('input', { type: 'text', value: settings.model || '', disabled: isAdmin ? null : 'true' });
+  const modelHint = el('p', { class: 'ap-muted', text: 'Ej: claude-opus-4-8 (Anthropic) · gpt-4o (OpenAI) · anthropic/claude-opus-4-8 (OpenRouter). El PDF solo anda con Anthropic.' });
   const status = el('p', { class: 'ap-status' });
   const u = usage || { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
   const body = [
     el('div', { class: 'ap-field' }, [el('label', { text: 'Proveedor' }), provider]),
-    el('div', { class: 'ap-field' }, [el('label', { text: 'Modelo' }), model]),
+    el('div', { class: 'ap-field' }, [el('label', { text: 'Modelo' }), model, modelHint]),
     !isAdmin && el('p', { class: 'ap-muted', text: 'Solo un admin puede cambiar el proveedor/modelo.' }),
     el('div', { class: 'ap-field' }, [
       el('label', { text: 'Uso de IA (esta empresa)' }),

@@ -49,3 +49,18 @@ resto de la app no dependa de un proveedor específico.
 - **WHEN** dos empresas usan proveedores distintos
 - **THEN** ambas obtienen la misma forma de respuesta (propuestas / hallazgos) sin
   cambios en el front-end
+
+#### Scenario: Gateway agregador (OpenRouter)
+
+- **WHEN** una empresa elige el proveedor `openrouter` con un modelo con formato
+  `proveedor/modelo` (p. ej. `anthropic/claude-opus-4-8`)
+- **THEN** la función enruta la llamada a través del gateway (API OpenAI-compatible)
+  y devuelve la misma forma de respuesta, registrando el costo real informado por el
+  gateway cuando está disponible
+
+#### Scenario: Capacidad no soportada por el proveedor (PDF)
+
+- **WHEN** se pide el modo "definir" con un PDF y el proveedor elegido no soporta
+  entrada de PDF
+- **THEN** la función no rompe: informa que esa capacidad requiere un proveedor
+  compatible (hoy, Anthropic), sin registrar uso
