@@ -155,3 +155,56 @@ export async function closeCycle(cycleId, scores) {
     await supabase.from('cycles').update({ status: 'cerrado' }).eq('id', cycleId).select().single()
   );
 }
+
+// --- IA coach (Edge Function `okr-coach`) ----------------------------------
+
+// Invoca la Edge Function. mode: 'definir' | 'revisar'.
+// Devuelve { result, usage } o un objeto de error suave (provider_not_configured, etc.).
+export async function aiAssist({ mode, organizationId, input = {}, draft = null, companyObjectives = [] }) {
+  const { data, error } = await supabase.functions.invoke('okr-coach', {
+    body: { mode, organizationId, input, draft, companyObjectives },
+  });
+  if (error) {
+    // El cuerpo de error de la función (p. ej. provider_not_configured) viene en error.context
+    try {
+      const ctx = error.context && (await error.context.json());
+      if (ctx) return { error: ctx.error || 'coach_failed', detail: ctx.detail, available: ctx.available };
+    } catch { /* noop */ }
+    return { error: 'coach_failed', detail: error.message };
+  }
+  return data;
+}
+
+// --- Config de IA por empresa ----------------------------------------------
+export async function getAISettings(orgId) {
+  const rows = unwrap(
+    await supabase.from('ai_settings').select('provider, model').eq('organization_id', orgId)
+  );
+  return rows[0] || { provider: 'anthropic', model: 'claude-opus-4-8' };
+}
+
+export async function setAISettings(orgId, { provider, model }) {
+  return unwrap(
+    await supabase.from('ai_settings')
+      .upsert({ organization_id: orgId, provider, model, updated_at: new Date().toISOString() })
+      .select().single()
+  );
+}
+
+// --- Resumen de uso de IA por empresa --------------------------------------
+export async function getAIUsageSummary(orgId) {
+  const rows = unwrap(
+    await supabase.from('ai_usage')
+      .select('input_tokens, output_tokens, est_cost_usd')
+      .eq('organization_id', orgId)
+  );
+  return rows.reduce(
+    (a, r) => ({
+      calls: a.calls + 1,
+      inputTokens: a.inputTokens + Number(r.input_tokens || 0),
+      outputTokens: a.outputTokens + Number(r.output_tokens || 0),
+      costUsd: a.costUsd + Number(r.est_cost_usd || 0),
+    }),
+    { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 }
+  );
+}

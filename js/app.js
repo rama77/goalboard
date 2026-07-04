@@ -66,7 +66,27 @@ async function renderForUser(user) {
           await data.createObjectiveWithKRs(activeOrg.id, activeCycle.id, payload);
           await renderForUser(user);
         },
+        ai: {
+          define: (input) => data.aiAssist({
+            mode: 'definir', organizationId: activeOrg.id, input,
+            companyObjectives: objectives.map((o) => ({ title: o.title, kind: o.kind })),
+          }),
+          review: (draft) => data.aiAssist({
+            mode: 'revisar', organizationId: activeOrg.id, draft,
+            companyObjectives: objectives.map((o) => ({ title: o.title, kind: o.kind })),
+          }),
+        },
       }),
+      onOpenAI: async () => {
+        const [settings, usage] = await Promise.all([
+          data.getAISettings(activeOrg.id),
+          data.getAIUsageSummary(activeOrg.id),
+        ]);
+        ui.aiPanelModal({
+          settings, usage, isAdmin: activeOrg.role === 'admin',
+          onSave: async (s) => { await data.setAISettings(activeOrg.id, s); },
+        });
+      },
       onCheckIn: (obj, kr) => ui.checkInModal({
         kr,
         onSubmit: async ({ value, confidence, note }) => {
