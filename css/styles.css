@@ -190,9 +190,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .ap-field-row{display:flex;gap:.6rem}
 .ap-field-row>*{flex:1}
 .ap-modal-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.25rem;flex-wrap:wrap}
-.ap-kr-edit{display:flex;flex-direction:column;gap:.5rem;border:1px solid var(--border);border-radius:.7rem;padding:.6rem;background:var(--background)}
+.ap-kr-edit{display:flex;flex-direction:column;gap:.4rem;border:1px solid var(--border);border-radius:.7rem;padding:.5rem;background:var(--background)}
 .ap-kr-edit-top{display:flex;gap:.4rem;align-items:center}
-.ap-kr-edit-top input{flex:1}
+.ap-kr-edit-top input[type="text"]{flex:1;min-width:0}
+.ap-kr-type{flex:0 0 auto;width:auto;min-width:5.5rem}
+.ap-kr-nums{display:flex;gap:.4rem}
+.ap-kr-nums input{flex:1;min-width:0}
 .ap-warn{font-size:.74rem;color:var(--warning);margin:0}
 
 @media (max-width:720px){

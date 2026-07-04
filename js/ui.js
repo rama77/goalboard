@@ -206,7 +206,7 @@ export function renderApp(root, ctx) {
       themeBtn(),
       el('button', { class: 'ap-icon-btn', title: 'Áreas', 'aria-label': 'Áreas', text: '👥', onclick: handlers.onOpenAreas }),
       el('button', { class: 'ap-icon-btn', title: 'IA', 'aria-label': 'IA', text: '✨', onclick: handlers.onOpenAI }),
-      activeCycle && view.isAdmin && !view.readOnly && objectives.length
+      activeCycle && view.isAdmin && !view.readOnly && objectives.length > 0
         && el('button', { class: 'ap-btn ghost', text: 'Cerrar ciclo', onclick: () => handlers.onCloseCycle(objectives) }),
       activeCycle && !view.readOnly && el('button', { class: 'ap-btn', text: '+ Nuevo objetivo', onclick: handlers.onNewObjective }),
     ]),
@@ -432,22 +432,21 @@ export function newObjectiveModal({ onSubmit, ai = null, isAdmin = false, areas 
 
   function krRow(init = {}) {
     const t = el('input', { type: 'text', placeholder: 'Key result (medible)', value: init.title || '' });
-    const type = el('select', {}, [
+    const type = el('select', { class: 'ap-kr-type' }, [
       el('option', { value: 'numerico', text: 'Número', selected: init.type === 'numerico' ? 'true' : null }),
       el('option', { value: 'porcentaje', text: '%', selected: init.type === 'porcentaje' ? 'true' : null }),
       el('option', { value: 'hito', text: 'Hito', selected: init.type === 'hito' ? 'true' : null }),
     ]);
-    const start = el('input', { type: 'number', placeholder: 'Inicial', value: String(init.start ?? 0) });
-    const target = el('input', { type: 'number', placeholder: 'Target', value: init.target != null ? String(init.target) : '' });
-    const current = el('input', { type: 'number', placeholder: 'Actual', value: String(init.current ?? init.start ?? 0) });
+    const start = el('input', { type: 'number', placeholder: 'Inicial', title: 'Inicial', value: String(init.start ?? 0) });
+    const target = el('input', { type: 'number', placeholder: 'Target', title: 'Target', value: init.target != null ? String(init.target) : '' });
+    const current = el('input', { type: 'number', placeholder: 'Actual', title: 'Actual', value: String(init.current ?? init.start ?? 0) });
+    // Compacto: título + tipo + quitar en una fila; inicial/target/actual en otra.
     const row = el('div', { class: 'ap-kr-edit' }, [
-      el('div', { class: 'ap-kr-edit-top' }, [t, el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } })]),
-      type,
-      el('div', { class: 'ap-field-row' }, [
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Inicial' }), start]),
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Target' }), target]),
-        el('div', { class: 'ap-field' }, [el('label', { text: 'Actual' }), current]),
+      el('div', { class: 'ap-kr-edit-top' }, [
+        t, type,
+        el('button', { class: 'ap-icon-btn', text: '✕', title: 'Quitar', onclick: () => { row.remove(); refreshWarn(); } }),
       ]),
+      el('div', { class: 'ap-kr-nums' }, [start, target, current]),
     ]);
     row._read = () => ({
       title: t.value.trim(), type: type.value,
