@@ -81,6 +81,23 @@ async function renderForUser(user) {
           }),
         },
       }),
+      onPlanWithAI: () => {
+        // Anclas / candidatos a padre: objetivos de empresa y área del ciclo.
+        const parents = objectives
+          .filter((o) => o.level === 'empresa' || o.level === 'area')
+          .map((o) => ({ id: o.id, title: o.title, level: o.level }));
+        ui.strategyModal({
+          isAdmin: activeOrg.role === 'admin',
+          areas: areas.map((a) => ({ id: a.id, name: a.name })),
+          parents,
+          onGenerate: (input) => data.aiStrategy({ organizationId: activeOrg.id, input, anchors: parents }),
+          onCreate: async (items) => {
+            const res = await data.createObjectivesBulk(activeOrg.id, activeCycle.id, items);
+            await renderForUser(user);
+            return res;
+          },
+        });
+      },
       onOpenAreas: async () => {
         const [freshAreas, orgMembers] = await Promise.all([
           data.listAreas(activeOrg.id),

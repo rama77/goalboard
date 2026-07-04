@@ -112,6 +112,17 @@ export async function createObjectiveWithKRs(
   return objective;
 }
 
+// Crea varios objetivos en bloque (una llamada por objetivo; RLS decide cada una).
+// Devuelve qué se creó y qué falló, sin abortar ante un fallo.
+export async function createObjectivesBulk(orgId, cycleId, items) {
+  const creados = [], fallidos = [];
+  for (const it of items) {
+    try { creados.push(await createObjectiveWithKRs(orgId, cycleId, it)); }
+    catch (e) { fallidos.push({ title: it.title, error: e.message }); }
+  }
+  return { creados, fallidos };
+}
+
 // --- Áreas -----------------------------------------------------------------
 
 export async function listAreas(orgId) {
@@ -216,11 +227,11 @@ export async function closeCycle(cycleId, scores) {
 
 // --- IA coach (Edge Function `okr-coach`) ----------------------------------
 
-// Invoca la Edge Function. mode: 'definir' | 'revisar'.
+// Invoca la Edge Function. mode: 'definir' | 'revisar' | 'estrategia'.
 // Devuelve { result, usage } o un objeto de error suave (provider_not_configured, etc.).
-export async function aiAssist({ mode, organizationId, input = {}, draft = null, companyObjectives = [] }) {
+export async function aiAssist({ mode, organizationId, input = {}, draft = null, companyObjectives = [], anchors = [] }) {
   const { data, error } = await supabase.functions.invoke('okr-coach', {
-    body: { mode, organizationId, input, draft, companyObjectives },
+    body: { mode, organizationId, input, draft, companyObjectives, anchors },
   });
   if (error) {
     // El cuerpo de error de la función (p. ej. provider_not_configured) viene en error.context
@@ -231,6 +242,12 @@ export async function aiAssist({ mode, organizationId, input = {}, draft = null,
     return { error: 'coach_failed', detail: error.message };
   }
   return data;
+}
+
+// Modo estrategia: propone varios OKRs desde texto/PDF, alineados a los objetivos
+// padres (anchors: [{id,title,level}]). Devuelve { result:{proposals,...}, usage }.
+export async function aiStrategy({ organizationId, input = {}, anchors = [] }) {
+  return aiAssist({ mode: 'estrategia', organizationId, input, anchors });
 }
 
 // --- Config de IA por empresa ----------------------------------------------
