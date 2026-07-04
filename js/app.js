@@ -55,8 +55,8 @@ async function renderForUser(user) {
       onSelectCycle: (id) => { state.setActiveCycleId(user.id, activeOrg.id, id); renderForUser(user); },
       onNewCycle: () => ui.newCycleModal({
         defaultName: String(new Date().getFullYear()),
-        onSubmit: async ({ name, cadence }) => {
-          const c = await data.createCycle(activeOrg.id, { name, cadence });
+        onSubmit: async ({ name, cadence, periodMonths }) => {
+          const c = await data.createCycle(activeOrg.id, { name, cadence, periodMonths });
           state.setActiveCycleId(user.id, activeOrg.id, c.id);
           await renderForUser(user);
         },

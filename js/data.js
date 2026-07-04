@@ -45,11 +45,17 @@ export async function listCycles(orgId) {
   );
 }
 
-export async function createCycle(orgId, { name, cadence, parentCycleId = null }) {
+export async function createCycle(orgId, { name, cadence, periodMonths, parentCycleId = null }) {
   return unwrap(
     await supabase
       .from('cycles')
-      .insert({ organization_id: orgId, name, cadence, parent_cycle_id: parentCycleId })
+      .insert({
+        organization_id: orgId,
+        name,
+        cadence,
+        period_months: periodMonths,
+        parent_cycle_id: parentCycleId,
+      })
       .select()
       .single()
   );

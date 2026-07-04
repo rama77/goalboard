@@ -172,7 +172,7 @@ export function renderApp(root, ctx) {
       onclick: () => handlers.onSelectCycle(c.id),
     }, [
       el('span', { class: 'nlbl', text: c.name }),
-      el('span', { class: 'ncount', text: c.cadence === 'anual' ? 'A' : 'Q' }),
+      el('span', { class: 'ncount', text: cadenceBadge(c.cadence) }),
     ])) : [el('div', { class: 'ap-side-user', text: 'Sin ciclos todavía' })]),
     el('button', { class: 'ap-side-add', text: '+ Nuevo ciclo', onclick: handlers.onNewCycle }),
   ]);
@@ -317,17 +317,42 @@ function openModal(titleText, bodyNodes, buildActions, opts = {}) {
   return close;
 }
 
-// onSubmit({name, cadence}) -> Promise
+// Presets de cadencia (etiqueta + duración en meses). "Otro…" habilita valores
+// libres: el schema ya no fuerza un conjunto fijo.
+const CADENCE_PRESETS = [
+  { label: 'anual', text: 'Anual', months: 12 },
+  { label: 'semestral', text: 'Semestral', months: 6 },
+  { label: 'cuatrimestral', text: 'Cuatrimestral', months: 4 },
+  { label: 'trimestral', text: 'Trimestral', months: 3 },
+  { label: 'mensual', text: 'Mensual', months: 1 },
+];
+const CADENCE_BADGE = { anual: 'A', semestral: 'S', cuatrimestral: 'C', trimestral: 'Q', mensual: 'M' };
+
+// Sigla para el badge del ciclo: mapa conocido, con fallback a la inicial.
+function cadenceBadge(cadence) {
+  const key = (cadence || '').trim().toLowerCase();
+  return CADENCE_BADGE[key] || (key ? key.charAt(0).toUpperCase() : '·');
+}
+
+// onSubmit({name, cadence, periodMonths}) -> Promise
 export function newCycleModal({ defaultName, onSubmit }) {
   const name = el('input', { type: 'text', value: defaultName || '', placeholder: 'Ej: 2027 o Q1 2027' });
   const cadence = el('select', {}, [
-    el('option', { value: 'anual', text: 'Anual' }),
-    el('option', { value: 'trimestral', text: 'Trimestral' }),
+    ...CADENCE_PRESETS.map((p) => el('option', { value: p.label, text: p.text })),
+    el('option', { value: '__otro__', text: 'Otro…' }),
   ]);
+  const customLabel = el('input', { type: 'text', placeholder: 'Cadencia (ej: bimestral)' });
+  const customMonths = el('input', { type: 'number', min: '1', step: '1', placeholder: 'Meses' });
+  const customWrap = el('div', { class: 'ap-field', style: 'display:none' }, [
+    el('label', { text: 'Cadencia personalizada' }),
+    el('div', { style: 'display:flex; gap:.5rem' }, [customLabel, customMonths]),
+  ]);
+  cadence.onchange = () => { customWrap.style.display = cadence.value === '__otro__' ? '' : 'none'; };
   const err = el('p', { class: 'ap-status' });
   openModal('Nuevo ciclo', [
     el('div', { class: 'ap-field' }, [el('label', { text: 'Nombre' }), name]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Cadencia' }), cadence]),
+    customWrap,
     err,
   ], (close) => [
     el('button', { class: 'ap-btn ghost', text: 'Cancelar', onclick: close }),
@@ -335,8 +360,18 @@ export function newCycleModal({ defaultName, onSubmit }) {
       class: 'ap-btn', text: 'Crear', onclick: async (e) => {
         const v = name.value.trim();
         if (!v) { err.dataset.kind = 'error'; err.textContent = 'Poné un nombre.'; return; }
+        let label, months;
+        if (cadence.value === '__otro__') {
+          label = customLabel.value.trim().toLowerCase();
+          months = parseInt(customMonths.value, 10);
+          if (!label) { err.dataset.kind = 'error'; err.textContent = 'Poné una cadencia.'; return; }
+          if (!(months > 0)) { err.dataset.kind = 'error'; err.textContent = 'Los meses tienen que ser mayores a 0.'; return; }
+        } else {
+          const preset = CADENCE_PRESETS.find((p) => p.label === cadence.value);
+          label = preset.label; months = preset.months;
+        }
         e.target.disabled = true;
-        try { await onSubmit({ name: v, cadence: cadence.value }); close(); }
+        try { await onSubmit({ name: v, cadence: label, periodMonths: months }); close(); }
         catch (er) { err.dataset.kind = 'error'; err.textContent = er.message; e.target.disabled = false; }
       },
     }),
