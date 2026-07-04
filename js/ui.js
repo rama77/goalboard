@@ -306,10 +306,10 @@ function aiErr(res) {
 }
 
 // --- Modales ---------------------------------------------------------------
-function openModal(titleText, bodyNodes, buildActions) {
+function openModal(titleText, bodyNodes, buildActions, opts = {}) {
   const overlay = el('div', { class: 'ap-overlay open' });
   const close = () => overlay.remove();
-  const modal = el('div', { class: 'ap-modal' }, [el('h3', { text: titleText }), ...bodyNodes]);
+  const modal = el('div', { class: 'ap-modal' + (opts.wide ? ' ap-modal-wide' : '') }, [el('h3', { text: titleText }), ...bodyNodes]);
   modal.append(el('div', { class: 'ap-modal-actions' }, buildActions(close)));
   overlay.append(modal);
   overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
@@ -385,7 +385,7 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
   addKr();
 
   // --- Controles de IA (opcionales) ---
-  const aiBox = el('div', { class: 'ap-ai-box', style: ai ? '' : 'display:none' });
+  const aiBox = el('details', { class: 'ap-ai-box', open: 'true', style: ai ? '' : 'display:none' });
   function readDraft() {
     return { title: title.value.trim(), kind: kind.value, keyResults: [...krList.children].map((r) => r._read()).filter((k) => k.title) };
   }
@@ -400,16 +400,26 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
   function renderFindings(box, findings, summary) {
     box.replaceChildren();
     if (summary) box.append(el('p', { class: 'ap-muted', text: summary }));
-    (findings || []).forEach((f) => box.append(el('div', { class: `ap-conf ${f.severity === 'warn' ? 'warn' : 'ok'}`, style: 'display:flex;margin:.2rem 0' }, [
-      el('span', { class: 'cd' }), el('span', { text: `${f.message}${f.suggestion ? ' — ' + f.suggestion : ''}` }),
-    ])));
+    if (findings?.length) {
+      const list = el('div', { class: 'ap-findings' });
+      findings.forEach((f) => list.append(el('div', { class: `ap-finding ${f.severity === 'warn' ? 'warn' : ''}` }, [
+        el('span', { text: f.message }),
+        f.suggestion ? el('span', { class: 'sug', text: ' — ' + f.suggestion }) : null,
+      ])));
+      box.append(list);
+    }
   }
   if (ai) {
     const defText = el('textarea', { rows: '3', placeholder: 'Contá qué tenés que hacer (o subí un PDF) y la IA propone OKRs…' });
-    const pdf = el('input', { type: 'file', accept: 'application/pdf' });
+    const pdf = el('input', { type: 'file', accept: 'application/pdf', style: 'display:none' });
+    const pdfName = el('span', { class: 'ap-file-name', text: 'Ningún archivo' });
+    pdf.onchange = () => { pdfName.textContent = pdf.files?.[0]?.name || 'Ningún archivo'; };
+    const pdfPicker = el('div', { class: 'ap-file' }, [
+      el('label', { class: 'ap-file-btn' }, ['📎 Adjuntar PDF', pdf]), pdfName,
+    ]);
     const aiStatus = el('p', { class: 'ap-status' });
     const out = el('div', {});
-    const btnDefine = el('button', { class: 'ap-btn ghost', type: 'button', text: '✨ Definir con IA', onclick: async () => {
+    const btnDefine = el('button', { class: 'ap-btn', type: 'button', text: '✨ Definir con IA', onclick: async () => {
       aiStatus.dataset.kind = ''; aiStatus.textContent = 'Pensando…'; btnDefine.disabled = true;
       try {
         const input = { text: defText.value.trim() };
@@ -418,7 +428,11 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
         const res = await ai.define(input);
         if (res.error) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = aiErr(res); return; }
         const p = res.result?.proposals?.[0];
-        if (p) { fillFromProposal(p); aiStatus.dataset.kind = 'ok'; aiStatus.textContent = 'Propuesta cargada — editala a tu gusto.'; }
+        if (p) {
+          fillFromProposal(p);
+          aiStatus.dataset.kind = 'ok'; aiStatus.textContent = 'Propuesta cargada — editala a tu gusto.';
+          title.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         renderFindings(out, res.result?.findings, res.result?.summary);
       } catch (e) { aiStatus.dataset.kind = 'error'; aiStatus.textContent = String(e.message || e); }
       finally { btnDefine.disabled = false; }
@@ -434,20 +448,29 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
       finally { btnReview.disabled = false; }
     } });
     aiBox.append(
-      el('div', { class: 'ap-field' }, [el('label', { text: 'Asistente de IA' }), defText, el('div', { class: 'ap-field-row', style: 'margin-top:.4rem' }, [pdf])]),
-      el('div', { class: 'ap-modal-actions', style: 'justify-content:flex-start' }, [btnDefine, btnReview]),
-      aiStatus, out,
+      el('summary', { text: 'Asistente de IA' }),
+      el('div', { class: 'ap-ai-body' }, [
+        defText,
+        pdfPicker,
+        el('div', { class: 'ap-modal-actions', style: 'justify-content:flex-start' }, [btnDefine, btnReview]),
+        el('p', { class: 'ap-ai-hint', text: 'Definir: partís de tus notas o un PDF y te propongo el objetivo con sus KRs. Revisar: feedback sobre lo que ya cargaste abajo.' }),
+        aiStatus, out,
+      ]),
     );
   }
 
-  openModal('Nuevo objetivo', [
-    aiBox,
+  const formCol = el('div', { class: 'ap-obj-col' }, [
     el('div', { class: 'ap-field' }, [el('label', { text: 'Objetivo' }), title]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Tipo' }), kind]),
     el('div', { class: 'ap-field' }, [el('label', { text: 'Key results' }), krList]),
     el('button', { class: 'ap-side-add', type: 'button', text: '+ Agregar key result', onclick: () => addKr() }),
     warn, err,
-  ], (close) => [
+  ]);
+  const layout = ai
+    ? el('div', { class: 'ap-obj-grid' }, [el('div', { class: 'ap-obj-col' }, [aiBox]), formCol])
+    : formCol;
+
+  openModal('Nuevo objetivo', [layout], (close) => [
     el('button', { class: 'ap-btn ghost', text: 'Cancelar', onclick: close }),
     el('button', {
       class: 'ap-btn', text: 'Crear objetivo', onclick: async (e) => {
@@ -465,7 +488,7 @@ export function newObjectiveModal({ onSubmit, ai = null }) {
         catch (er) { err.dataset.kind = 'error'; err.textContent = er.message; e.target.disabled = false; }
       },
     }),
-  ]);
+  ], { wide: !!ai });
 }
 
 function fmtDate(s) { try { return new Date(s).toLocaleString(); } catch { return s; } }
